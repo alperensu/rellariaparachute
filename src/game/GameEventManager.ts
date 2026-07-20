@@ -16,11 +16,16 @@ export interface GameEventManagerOptions {
 }
 
 export class GameEventManager implements DropEventEmitter {
+  private static readonly LANDING_SLOT_COUNT = 120;
+  private static readonly SPECIAL_USERNAME = "alperensu";
+  private static readonly SPECIAL_CLEARANCE = 0.034;
   private readonly durationMs: number;
   private readonly now: () => number;
   private readonly random: () => number;
   private activeEvent: GameEventState | null = null;
   private readonly joinedUsers = new Set<string>();
+  private availableLandingSlots: number[] = [];
+  private occupiedLandingX: number[] = [];
   private endTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -40,8 +45,7 @@ export class GameEventManager implements DropEventEmitter {
 
     this.joinedUsers.add(drop.userId);
     const spawnX = this.clamp(0.06 + this.random() * 0.88, 0.06, 0.94);
-    // İniş noktası hedeften bağımsızdır; kaseyi tutturmak yaklaşık %20 olasılıktır.
-    const landingX = 0.04 + this.random() * 0.92;
+    const landingX = this.allocateLandingX(drop.username, this.activeEvent.targetX);
     const score = this.calculateScore(landingX, this.activeEvent.targetX);
 
     this.output.emitPlayerDrop({
@@ -60,6 +64,8 @@ export class GameEventManager implements DropEventEmitter {
     this.endTimer = null;
     this.activeEvent = null;
     this.joinedUsers.clear();
+    this.availableLandingSlots = [];
+    this.occupiedLandingX = [];
   }
 
   private startEvent(): void {
@@ -73,6 +79,13 @@ export class GameEventManager implements DropEventEmitter {
       durationMs: this.durationMs,
     };
     this.joinedUsers.clear();
+    this.occupiedLandingX = [];
+    this.availableLandingSlots = Array.from(
+      { length: GameEventManager.LANDING_SLOT_COUNT },
+      (_, index) => 0.04 + ((index + 0.5) / GameEventManager.LANDING_SLOT_COUNT) * 0.92,
+    ).filter(
+      (slot) => Math.abs(slot - this.activeEvent!.targetX) >= GameEventManager.SPECIAL_CLEARANCE,
+    );
     this.output.emitEventStarted(this.activeEvent);
 
     const eventId = this.activeEvent.id;
@@ -85,7 +98,59 @@ export class GameEventManager implements DropEventEmitter {
     this.output.emitEventEnded(eventId);
     this.activeEvent = null;
     this.joinedUsers.clear();
+    this.availableLandingSlots = [];
+    this.occupiedLandingX = [];
     this.endTimer = null;
+  }
+
+  private allocateLandingX(username: string, targetX: number): number {
+    if (username.trim().toLowerCase() === GameEventManager.SPECIAL_USERNAME) {
+      this.occupiedLandingX.push(targetX);
+      return targetX;
+    }
+
+    if (this.availableLandingSlots.length === 0) {
+      const anchors = [0.04, targetX, ...this.occupiedLandingX, 0.96]
+        .sort((left, right) => left - right);
+      let largestGapStart = anchors[0] ?? 0.04;
+      let largestGap = 0;
+      for (let index = 1; index < anchors.length; index += 1) {
+        const start = anchors[index - 1] ?? 0.04;
+        const end = anchors[index] ?? 0.96;
+        if (end - start > largestGap) {
+          largestGap = end - start;
+          largestGapStart = start;
+        }
+      }
+      const fallback = largestGapStart + largestGap / 2;
+      this.occupiedLandingX.push(fallback);
+      return fallback;
+    }
+
+    const anchors = [targetX, ...this.occupiedLandingX];
+    let bestDistance = -1;
+    let bestIndices: number[] = [];
+    for (let index = 0; index < this.availableLandingSlots.length; index += 1) {
+      const candidate = this.availableLandingSlots[index]!;
+      const nearestDistance = anchors.length === 0
+        ? Number.POSITIVE_INFINITY
+        : Math.min(...anchors.map((occupied) => Math.abs(candidate - occupied)));
+      if (nearestDistance > bestDistance + Number.EPSILON) {
+        bestDistance = nearestDistance;
+        bestIndices = [index];
+      } else if (Math.abs(nearestDistance - bestDistance) <= Number.EPSILON) {
+        bestIndices.push(index);
+      }
+    }
+
+    const tieIndex = Math.min(
+      bestIndices.length - 1,
+      Math.floor(this.random() * bestIndices.length),
+    );
+    const selectedIndex = bestIndices[Math.max(0, tieIndex)] ?? 0;
+    const landingX = this.availableLandingSlots.splice(selectedIndex, 1)[0] ?? 0.5;
+    this.occupiedLandingX.push(landingX);
+    return landingX;
   }
 
   private clamp(value: number, minimum: number, maximum: number): number {

@@ -1,10 +1,11 @@
 /* global Phaser, io */
 
 const BOWL_SCALE = 0.58;
-const PLAYER_SCALE = 0.76;
+const PLAYER_SCALE = 0.66;
 const PARACHUTE_UI_SCALE = 0.82;
-const BOWL_LANDING_Y = 944;
-const GROUND_LANDING_Y = 1_018;
+const BOWL_SURFACE_Y = 1_003;
+const GROUND_CONTACT_Y = 1_078;
+const CHARACTER_CONTACT_OFFSET = 83;
 
 class SocketBridge {
   constructor() {
@@ -167,15 +168,18 @@ class PinkLandingBowl {
 }
 
 class ParachutePlayer {
-  constructor(scene, player, bowl) {
+  constructor(scene, player, bowl, displayScale) {
     this.scene = scene;
     this.player = player;
     this.bowl = bowl;
     this.startX = player.spawnX * 1_920;
     this.landingX = player.landingX * 1_920;
+    this.displayScale = displayScale;
+    this.isLanded = false;
+    this.landedInBowl = false;
     this.container = scene.add.container(this.startX, -145)
       .setDepth(12)
-      .setScale(PLAYER_SCALE);
+      .setScale(this.displayScale);
     this.build();
     this.fall();
   }
@@ -316,7 +320,12 @@ class ParachutePlayer {
       onUpdate: () => {
         const value = progress.value;
         const travel = Phaser.Math.Linear(this.startX, this.landingX, value);
-        const sway = Math.sin(value * Math.PI * 7) * 72 * Math.sin(value * Math.PI) * swayDirection;
+        const densityRatio = Math.min(1, this.displayScale / PLAYER_SCALE);
+        const sway = Math.sin(value * Math.PI * 7)
+          * 36
+          * densityRatio
+          * Math.sin(value * Math.PI)
+          * swayDirection;
         this.container.x = Phaser.Math.Clamp(travel + sway, 70, 1_850);
         this.container.y = Phaser.Math.Linear(-145, 900, Math.pow(value, 0.92));
         this.container.angle = Math.sin(value * Math.PI * 7) * 5;
@@ -328,17 +337,20 @@ class ParachutePlayer {
   land() {
     this.container.angle = 0;
     const landedInBowl = this.bowl?.contains(this.landingX) ?? false;
+    this.landedInBowl = landedInBowl;
     if (landedInBowl) this.bowl.splash(this.landingX);
     this.scene.tweens.add({
       targets: this.container,
       x: this.landingX,
-      y: landedInBowl ? BOWL_LANDING_Y : GROUND_LANDING_Y,
+      y: this.getLandingY(),
       duration: 180,
       ease: "Quad.in",
       onComplete: () => {
+        this.isLanded = true;
+        this.container.y = this.getLandingY();
         this.scene.tweens.add({
           targets: this.container,
-          scaleY: PLAYER_SCALE * 0.88,
+          scaleY: this.displayScale * 0.88,
           duration: 90,
           yoyo: true,
           ease: "Sine.inOut",
@@ -369,14 +381,34 @@ class ParachutePlayer {
     });
   }
 
+  setDisplayScale(scale) {
+    this.displayScale = scale;
+    const targets = {
+      scaleX: scale,
+      scaleY: scale,
+    };
+    if (this.isLanded) targets.y = this.getLandingY();
+    this.scene.tweens.add({
+      targets: this.container,
+      ...targets,
+      duration: 260,
+      ease: "Sine.inOut",
+    });
+  }
+
+  getLandingY() {
+    const contactY = this.landedInBowl ? BOWL_SURFACE_Y : GROUND_CONTACT_Y;
+    return contactY - CHARACTER_CONTACT_OFFSET * this.displayScale;
+  }
+
   destroy() {
     if (!this.container?.active) return;
     this.scene.tweens.killTweensOf(this.container);
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
-      scaleX: PLAYER_SCALE * 0.5,
-      scaleY: PLAYER_SCALE * 0.5,
+      scaleX: this.displayScale * 0.5,
+      scaleY: this.displayScale * 0.5,
       duration: 320,
       onComplete: () => this.container.destroy(true),
     });
@@ -433,8 +465,15 @@ class ParachuteScene extends Phaser.Scene {
         endsAt: new Date(Date.now() + 60_000).toISOString(),
       });
     }
-    const parachutePlayer = new ParachutePlayer(this, player, this.bowl);
+    const playerCount = this.players.size + 1;
+    const displayScale = this.getPlayerScale(playerCount);
+    const parachutePlayer = new ParachutePlayer(this, player, this.bowl, displayScale);
     this.players.add(parachutePlayer);
+    for (const activePlayer of this.players) activePlayer.setDisplayScale(displayScale);
+  }
+
+  getPlayerScale(playerCount) {
+    return Phaser.Math.Clamp(10.5 / Math.max(1, playerCount), 0.09, PLAYER_SCALE);
   }
 
 }
