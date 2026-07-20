@@ -59,51 +59,43 @@ class PinkLandingBowl {
   }
 
   build() {
-    const shadow = this.scene.add.ellipse(0, 52, 430, 52, 0x3d0b30, 0.45);
-    const glow = this.scene.add.ellipse(0, 0, 470, 165, 0xff2fa4, 0.22);
+    if (this.scene.textures.exists("landing_bowl_svg")) {
+      this.bowlImage = this.scene.add.image(0, 0, "landing_bowl_svg");
+      this.container.add(this.bowlImage);
 
-    const bowlGraphics = this.scene.add.graphics();
-    bowlGraphics.fillStyle(0xff80d5, 0.16);
-    bowlGraphics.fillEllipse(0, 10, 430, 155);
+      this.glowOverlay = this.scene.add.ellipse(0, -20, 360, 60, 0xff33b4, 0.15);
+      this.container.add(this.glowOverlay);
+      this.scene.tweens.add({
+        targets: this.glowOverlay,
+        alpha: 0.35,
+        scaleX: 1.05,
+        duration: 1_400,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.inOut",
+      });
+    } else {
+      const shadow = this.scene.add.ellipse(0, 52, 430, 52, 0x3d0b30, 0.45);
+      const glow = this.scene.add.ellipse(0, 0, 470, 165, 0xff2fa4, 0.22);
 
-    const liquidBack = this.scene.add.ellipse(0, -20, 396, 88, 0x8a0b5a, 0.95);
-    const liquidMain = this.scene.add.ellipse(0, -26, 376, 74, 0xff1a9e, 0.96);
-    const liquidGlow = this.scene.add.ellipse(-30, -36, 235, 34, 0xffc4ed, 0.4);
+      const bowlGraphics = this.scene.add.graphics();
+      bowlGraphics.fillStyle(0xff80d5, 0.16);
+      bowlGraphics.fillEllipse(0, 10, 430, 155);
 
-    const glassRim = this.scene.add.graphics();
-    glassRim.lineStyle(9, 0xffd6f3, 0.96);
-    glassRim.strokeEllipse(0, -22, 415, 98);
-    glassRim.lineStyle(3, 0xffffff, 0.92);
-    glassRim.strokeEllipse(0, -27, 384, 78);
-    glassRim.lineStyle(5, 0xff99dc, 0.75);
-    glassRim.strokeEllipse(0, 10, 430, 155);
+      const liquidBack = this.scene.add.ellipse(0, -20, 396, 88, 0x8a0b5a, 0.95);
+      const liquidMain = this.scene.add.ellipse(0, -26, 376, 74, 0xff1a9e, 0.96);
+      const liquidGlow = this.scene.add.ellipse(-30, -36, 235, 34, 0xffc4ed, 0.4);
 
-    glassRim.lineStyle(4, 0xffffff, 0.55);
-    glassRim.beginPath();
-    glassRim.arc(-145, 18, 52, 0.5, 1.8);
-    glassRim.strokePath();
+      const glassRim = this.scene.add.graphics();
+      glassRim.lineStyle(9, 0xffd6f3, 0.96);
+      glassRim.strokeEllipse(0, -22, 415, 98);
+      glassRim.lineStyle(3, 0xffffff, 0.92);
+      glassRim.strokeEllipse(0, -27, 384, 78);
+      glassRim.lineStyle(5, 0xff99dc, 0.75);
+      glassRim.strokeEllipse(0, 10, 430, 155);
 
-    this.container.add([shadow, glow, bowlGraphics, liquidBack, liquidMain, liquidGlow, glassRim]);
-
-    this.scene.tweens.add({
-      targets: liquidMain,
-      scaleX: 0.97,
-      scaleY: 1.06,
-      duration: 1_200,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.inOut",
-    });
-
-    this.scene.tweens.add({
-      targets: liquidGlow,
-      x: 60,
-      alpha: 0.18,
-      duration: 1_600,
-      yoyo: true,
-      repeat: -1,
-      ease: "Sine.inOut",
-    });
+      this.container.add([shadow, glow, bowlGraphics, liquidBack, liquidMain, liquidGlow, glassRim]);
+    }
 
     for (let index = 0; index < 14; index += 1) {
       this.spawnBubble(true);
@@ -159,11 +151,12 @@ class PinkLandingBowl {
   }
 
   animateIn() {
+    const targetScale = BOWL_SCALE * 0.95;
     this.scene.tweens.add({
       targets: this.container,
       alpha: 1,
-      scaleX: BOWL_SCALE,
-      scaleY: BOWL_SCALE,
+      scaleX: targetScale,
+      scaleY: targetScale,
       y: this.y - 12,
       duration: 650,
       ease: "Back.out",
@@ -171,7 +164,7 @@ class PinkLandingBowl {
   }
 
   contains(worldX) {
-    return Math.abs(worldX - this.x) <= 108;
+    return Math.abs(worldX - this.x) <= 112;
   }
 
   splash(worldX) {
@@ -180,10 +173,11 @@ class PinkLandingBowl {
       this.spawnSplashBubble(localX, index);
     }
 
+    const currentScale = BOWL_SCALE * 0.95;
     this.scene.tweens.add({
       targets: this.container,
-      scaleX: BOWL_SCALE * 1.05,
-      scaleY: BOWL_SCALE * 0.93,
+      scaleX: currentScale * 1.05,
+      scaleY: currentScale * 0.93,
       duration: 120,
       yoyo: true,
       ease: "Sine.inOut",
@@ -219,11 +213,12 @@ class PinkLandingBowl {
       if (bubble?.active) bubble.destroy();
     }
     this.bubbles = [];
+    const currentScale = BOWL_SCALE * 0.95;
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
-      scaleX: BOWL_SCALE * 0.7,
-      scaleY: BOWL_SCALE * 0.7,
+      scaleX: currentScale * 0.7,
+      scaleY: currentScale * 0.7,
       y: this.y + 40,
       duration: 420,
       ease: "Back.in",
@@ -620,6 +615,10 @@ class ParachuteScene extends Phaser.Scene {
     this.activeEvent = null;
     this.bowl = null;
     this.players = new Set();
+  }
+
+  preload() {
+    this.load.svg("landing_bowl_svg", "/bowl.svg", { width: 600, height: 340 });
   }
 
   create() {

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" width="600" height="340">
+  <defs>
+    <!-- Soft Drop Shadow -->
+    <filter id="shadowBlur" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="12"/>
+      <feOffset dx="0" dy="14" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.45"/>
+      </feComponentTransfer>
+      <feMerge> 
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Outer Neon Glow -->
+    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="15" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Liquid Main Gradient -->
+    <linearGradient id="liquidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff2eab" stop-opacity="1"/>
+      <stop offset="60%" stop-color="#d90077" stop-opacity="0.98"/>
+      <stop offset="100%" stop-color="#6e003c" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- Liquid Surface Radial Highlight -->
+    <radialGradient id="liquidSurfaceGlow" cx="42%" cy="38%" r="55%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
+      <stop offset="35%" stop-color="#ffb3e6" stop-opacity="0.6"/>
+      <stop offset="70%" stop-color="#ff1a9e" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ff1a9e" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Glass Body Translucent Gradient -->
+    <linearGradient id="glassBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="30%" stop-color="#ffaae5" stop-opacity="0.12"/>
+      <stop offset="70%" stop-color="#ff33b4" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.3"/>
+    </linearGradient>
+
+    <!-- Rim Glowing Border -->
+    <linearGradient id="rimStrokeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="30%" stop-color="#ffb8e8" stop-opacity="1"/>
+      <stop offset="70%" stop-color="#ff66cc" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.95"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Ground Shadow -->
+  <ellipse cx="300" cy="275" rx="220" ry="32" fill="#290520" opacity="0.55" filter="url(#shadowBlur)" />
+
+  <!-- Outer Neon Aura -->
+  <ellipse cx="300" cy="190" rx="240" ry="105" fill="#ff1a9e" opacity="0.22" filter="url(#neonGlow)" />
+
+  <!-- Glass Bowl Back Fill -->
+  <ellipse cx="300" cy="180" rx="225" ry="100" fill="url(#glassBodyGrad)" stroke="url(#rimStrokeGrad)" stroke-width="4" opacity="0.95" />
+
+  <!-- Liquid Base Depth -->
+  <ellipse cx="300" cy="148" rx="205" ry="54" fill="#5c0032" opacity="0.95" />
+
+  <!-- Liquid Main Volume -->
+  <ellipse cx="300" cy="154" rx="198" ry="48" fill="url(#liquidGrad)" />
+
+  <!-- Liquid Surface Radial Glow Reflection -->
+  <ellipse cx="270" cy="145" rx="140" ry="26" fill="url(#liquidSurfaceGlow)" />
+
+  <!-- Liquid Surface Rim Stroke -->
+  <ellipse cx="300" cy="150" rx="200" ry="50" fill="none" stroke="#ffaae5" stroke-width="2.5" opacity="0.75" />
+
+  <!-- Glass Front Highlights & Refractions -->
+  <!-- Main Curved Left Highlight -->
+  <path d="M 120 180 A 190 85 0 0 0 210 260" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.65" />
+  <path d="M 105 165 A 200 90 0 0 0 170 245" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.4" />
+
+  <!-- Bottom Right Subtle Highlight -->
+  <path d="M 410 230 A 190 85 0 0 0 470 180" fill="none" stroke="#ffaae5" stroke-width="4" stroke-linecap="round" opacity="0.45" />
+
+  <!-- Glass Bowl Top Rim Outer Highlight -->
+  <ellipse cx="300" cy="115" rx="222" ry="42" fill="none" stroke="url(#rimStrokeGrad)" stroke-width="8" />
+  <ellipse cx="300" cy="113" rx="218" ry="38" fill="none" stroke="#ffffff" stroke-width="3.5" opacity="0.9" />
+
+  <!-- Sparkles on Rim -->
+  <circle cx="150" cy="115" r="4" fill="#ffffff" opacity="0.9" />
+  <circle cx="450" cy="115" r="3.5" fill="#ffffff" opacity="0.85" />
+  <polygon points="300,95 304,103 312,107 304,111 300,119 296,111 288,107 296,103" fill="#ffffff" opacity="0.95" />
+</svg>
