@@ -90,7 +90,8 @@ export class GameServer {
 
       const redirectUri = encodeURIComponent(`${this.config.publicBaseUrl}/auth/kick/callback`);
       const clientId = encodeURIComponent(this.config.clientId);
-      const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=chat:write&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}`;
+      const scopes = encodeURIComponent("user:read channel:read channel:write chat:write chat:read streamkey:read events:subscribe moderator:manage");
+      const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes}&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}`;
       response.redirect(authUrl);
     });
 
