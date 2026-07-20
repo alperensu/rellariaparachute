@@ -27,6 +27,7 @@ export class GameServer {
 
   constructor(private readonly config: AppConfig) {
     this.app = express();
+    this.app.set("trust proxy", true);
     this.httpServer = createServer(this.app);
     this.kickChat = new KickChatClient({
       channelSlug: config.channelSlug,
@@ -79,13 +80,16 @@ export class GameServer {
     if (process.env.PUBLIC_BASE_URL?.trim()) {
       return process.env.PUBLIC_BASE_URL.trim().replace(/\/+$/, "");
     }
-    const hostHeader = req.headers["x-forwarded-host"] as string || req.headers.host;
-    if (hostHeader) {
+    const hostHeader = (req.headers["x-forwarded-host"] as string) || req.headers.host;
+    if (hostHeader && !hostHeader.includes("localhost") && !hostHeader.includes("127.0.0.1")) {
       const proto = (req.headers["x-forwarded-proto"] as string) || (req.secure ? "https" : "http");
       const normalizedProto = hostHeader.includes("onrender.com") ? "https" : proto;
       return `${normalizedProto}://${hostHeader}`;
     }
-    return this.config.publicBaseUrl;
+    if (req.headers.host && !req.headers.host.includes("localhost") && !req.headers.host.includes("127.0.0.1")) {
+      return `https://${req.headers.host}`;
+    }
+    return "https://rellariaparachute.onrender.com";
   }
 
   private configureHttpRoutes(): void {
