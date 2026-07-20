@@ -78,7 +78,17 @@ export class GameServer {
         maxAge: "1d",
       }),
     );
-    this.app.use(express.static(resolve(process.cwd(), "public")));
+    this.app.use(
+      express.static(resolve(process.cwd(), "public"), {
+        etag: false,
+        maxAge: 0,
+        setHeaders: (res) => {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        },
+      }),
+    );
 
     this.app.get("/api/info", (_request, response) => {
       response.json({

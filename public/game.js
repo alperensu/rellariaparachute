@@ -17,8 +17,25 @@ class SocketBridge {
 
   connect(handlers) {
     this.socket = io({ transports: ["websocket", "polling"] });
-    this.socket.on("connect", handlers.onConnected);
-    this.socket.on("disconnect", handlers.onDisconnected);
+    let isReconnecting = false;
+
+    this.socket.on("connect", () => {
+      if (isReconnecting) {
+        window.location.reload();
+        return;
+      }
+      handlers.onConnected?.();
+    });
+
+    this.socket.on("disconnect", (reason) => {
+      isReconnecting = true;
+      handlers.onDisconnected?.(reason);
+    });
+
+    this.socket.on("system:reload", () => {
+      window.location.reload();
+    });
+
     this.socket.on("game:event-started", handlers.onEventStarted);
     this.socket.on("game:event-ended", handlers.onEventEnded);
     this.socket.on("drop", handlers.onDrop);
