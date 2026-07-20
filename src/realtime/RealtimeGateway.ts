@@ -38,6 +38,11 @@ export class RealtimeGateway implements GameEventOutput {
     this.io.emit("game:event-ended", { eventId });
   }
 
+  broadcastReload(): void {
+    console.log("[SOCKET] Tüm OBS kaynaklarına uzaktan yenileme emri gönderiliyor...");
+    this.io.emit("system:reload");
+  }
+
   async close(): Promise<void> {
     await new Promise<void>((resolve) => this.io.close(() => resolve()));
   }

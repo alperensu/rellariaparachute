@@ -90,6 +90,14 @@ export class GameServer {
       }),
     );
 
+    this.app.get("/api/reload", (_request, response) => {
+      this.realtime.broadcastReload();
+      response.json({
+        ok: true,
+        message: "Tüm OBS tarayıcı ekranlarına yenileme (reload) sinyali gönderildi.",
+      });
+    });
+
     this.app.get("/api/info", (_request, response) => {
       response.json({
         name: "Rellaria Parachute Drop Backend",
