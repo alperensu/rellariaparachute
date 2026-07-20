@@ -73,15 +73,19 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     const endpoints = [
       {
         url: `https://kick.com/api/v2/chatrooms/${chatroomId}/messages`,
+        body: JSON.stringify({ content: message, type: "message" }),
+      },
+      {
+        url: `https://kick.com/api/v2/chatrooms/${chatroomId}/messages`,
         body: JSON.stringify({ content: message, type: "bot" }),
       },
       {
         url: "https://kick.com/api/v2/messages/send",
-        body: JSON.stringify({ chatroom_id: chatroomId, content: message }),
+        body: JSON.stringify({ chatroom_id: chatroomId, content: message, type: "message" }),
       },
       {
         url: "https://api.kick.com/public/v1/chat",
-        body: JSON.stringify({ chatroom_id: chatroomId, content: message }),
+        body: JSON.stringify({ broadcaster_user_id: chatroomId, content: message, type: "user" }),
       },
     ];
 
@@ -118,12 +122,15 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
         body,
         signal: AbortSignal.timeout(10_000),
       });
+      const responseText = await response.text();
       if (response.ok) {
         console.log(`[KICK CHAT] Mesaj gönderildi: ${url}`);
         return true;
+      } else {
+        console.warn(`[KICK CHAT FETCH HATA ${response.status}] ${url} -> ${responseText.slice(0, 300)}`);
       }
-    } catch {
-      // Ignore fetch errors and try fallback
+    } catch (err: any) {
+      console.warn(`[KICK CHAT FETCH EXCEPTION] ${url} -> ${err.message}`);
     }
     return false;
   }
@@ -135,14 +142,13 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
       for (const [key, value] of Object.entries(headers)) {
         headerArgs.push("-H", `${key}: ${value}`);
       }
-      await execFileAsync(
+      const { stdout } = await execFileAsync(
         executable,
         [
           "-X", "POST",
           "-L",
           "--silent",
           "--show-error",
-          "--fail",
           "--max-time", "10",
           ...headerArgs,
           "-d", body,
@@ -150,11 +156,14 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
         ],
         { maxBuffer: 1024 * 1024 },
       );
-      console.log(`[KICK CHAT (cURL)] Mesaj gönderildi: ${url}`);
-      return true;
-    } catch {
-      return false;
+      console.log(`[KICK CHAT cURL YANIT] ${url} -> ${stdout.slice(0, 300)}`);
+      if (stdout.includes('"status":') || stdout.includes('"message":') || stdout.includes('"id":') || stdout.includes('"content":')) {
+        return true;
+      }
+    } catch (err: any) {
+      console.warn(`[KICK CHAT cURL EXCEPTION] ${url} -> ${err.message}`);
     }
+    return false;
   }
 
   private async getOrFetchAccessToken(): Promise<string | null> {
