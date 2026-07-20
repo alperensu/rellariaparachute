@@ -6,6 +6,9 @@ const PARACHUTE_UI_SCALE = 0.82;
 const BOWL_SURFACE_Y = 1_003;
 const GROUND_CONTACT_Y = 1_078;
 const CHARACTER_CONTACT_OFFSET = 83;
+const WORLD_WIDTH = 1_920;
+const AIRBORNE_MIN_X = 70;
+const AIRBORNE_MAX_X = 1_850;
 
 class SocketBridge {
   constructor() {
@@ -176,7 +179,14 @@ class ParachutePlayer {
     this.landingX = player.landingX * 1_920;
     this.displayScale = displayScale;
     this.isLanded = false;
+    this.isAirborne = true;
     this.landedInBowl = false;
+    this.velocityX = Number.isFinite(player.launchVelocityX)
+      ? player.launchVelocityX * WORLD_WIDTH
+      : (Math.random() < 0.5 ? -1 : 1) * (125 + Math.random() * 145);
+    this.fallElapsed = 0;
+    this.fallDuration = 5_800 + Math.random() * 2_200;
+    this.lastCollisionAt = Number.NEGATIVE_INFINITY;
     this.container = scene.add.container(this.startX, -145)
       .setDepth(12)
       .setScale(this.displayScale);
@@ -309,32 +319,64 @@ class ParachutePlayer {
   }
 
   fall() {
-    const progress = { value: 0 };
-    const duration = 5_800 + Math.random() * 2_200;
-    const swayDirection = Math.random() > 0.5 ? 1 : -1;
-    this.scene.tweens.add({
-      targets: progress,
-      value: 1,
-      duration,
-      ease: "Sine.inOut",
-      onUpdate: () => {
-        const value = progress.value;
-        const travel = Phaser.Math.Linear(this.startX, this.landingX, value);
-        const densityRatio = Math.min(1, this.displayScale / PLAYER_SCALE);
-        const sway = Math.sin(value * Math.PI * 7)
-          * 36
-          * densityRatio
-          * Math.sin(value * Math.PI)
-          * swayDirection;
-        this.container.x = Phaser.Math.Clamp(travel + sway, 70, 1_850);
-        this.container.y = Phaser.Math.Linear(-145, 900, Math.pow(value, 0.92));
-        this.container.angle = Math.sin(value * Math.PI * 7) * 5;
-      },
-      onComplete: () => this.land(),
-    });
+    this.container.angle = Phaser.Math.Clamp(this.velocityX / 32, -8, 8);
+  }
+
+  updateFall(delta) {
+    if (!this.isAirborne || !this.container?.active) return;
+
+    const deltaSeconds = Math.min(delta, 50) / 1_000;
+    this.fallElapsed += delta;
+    const progress = Phaser.Math.Clamp(this.fallElapsed / this.fallDuration, 0, 1);
+    const remainingSeconds = Math.max((this.fallDuration - this.fallElapsed) / 1_000, 0.28);
+    const desiredVelocity = (this.landingX - this.container.x) / remainingSeconds;
+    const steeringStrength = progress < 0.68 ? 105 : 520;
+    const velocityChange = Phaser.Math.Clamp(
+      desiredVelocity - this.velocityX,
+      -steeringStrength * deltaSeconds,
+      steeringStrength * deltaSeconds,
+    );
+
+    this.velocityX += velocityChange;
+    this.container.x += this.velocityX * deltaSeconds;
+    if (this.container.x <= AIRBORNE_MIN_X || this.container.x >= AIRBORNE_MAX_X) {
+      this.container.x = Phaser.Math.Clamp(this.container.x, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
+      this.velocityX *= -0.72;
+    }
+
+    this.container.y = Phaser.Math.Linear(-145, 900, Math.pow(progress, 0.92));
+    const sway = Math.sin(progress * Math.PI * 7) * 2.5;
+    this.container.angle = Phaser.Math.Clamp(this.velocityX / 34, -9, 9) + sway;
+
+    if (progress >= 1) this.land();
+  }
+
+  collideWith(other, now) {
+    if (!this.isAirborne || !other.isAirborne) return;
+    if (now - this.lastCollisionAt < 140 || now - other.lastCollisionAt < 140) return;
+
+    const horizontalRadius = 58 * (this.displayScale + other.displayScale);
+    const verticalRadius = 82 * (this.displayScale + other.displayScale);
+    const deltaX = other.container.x - this.container.x;
+    const deltaY = other.container.y - this.container.y;
+    if (Math.abs(deltaX) >= horizontalRadius || Math.abs(deltaY) >= verticalRadius) return;
+
+    const direction = deltaX === 0 ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(deltaX);
+    const overlap = horizontalRadius - Math.abs(deltaX);
+    this.container.x -= direction * overlap * 0.5;
+    other.container.x += direction * overlap * 0.5;
+
+    const incomingSpeed = Math.abs(this.velocityX - other.velocityX);
+    const collisionSpeed = Phaser.Math.Clamp(95 + incomingSpeed * 0.68, 115, 330);
+    this.velocityX = -direction * collisionSpeed * (0.82 + Math.random() * 0.28);
+    other.velocityX = direction * collisionSpeed * (0.82 + Math.random() * 0.28);
+    this.lastCollisionAt = now;
+    other.lastCollisionAt = now;
   }
 
   land() {
+    if (!this.isAirborne) return;
+    this.isAirborne = false;
     this.container.angle = 0;
     const landedInBowl = this.bowl?.contains(this.landingX) ?? false;
     this.landedInBowl = landedInBowl;
@@ -436,8 +478,14 @@ class ParachuteScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.socketBridge.disconnect());
   }
 
-  update() {
-    // Düşüş animasyonları Phaser tween sistemi tarafından güncellenir.
+  update(time, delta) {
+    const players = [...this.players];
+    for (const player of players) player.updateFall(delta);
+    for (let leftIndex = 0; leftIndex < players.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < players.length; rightIndex += 1) {
+        players[leftIndex].collideWith(players[rightIndex], time);
+      }
+    }
   }
 
   startEvent(event) {

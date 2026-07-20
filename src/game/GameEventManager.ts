@@ -19,6 +19,8 @@ export class GameEventManager implements DropEventEmitter {
   private static readonly LANDING_SLOT_COUNT = 120;
   private static readonly SPECIAL_USERNAME = "alperensu";
   private static readonly SPECIAL_CLEARANCE = 0.034;
+  private static readonly SPECIAL_TARGET_CHANCE = 0.7;
+  private static readonly SPECIAL_TARGET_SPREAD = 0.045;
   private readonly durationMs: number;
   private readonly now: () => number;
   private readonly random: () => number;
@@ -46,6 +48,8 @@ export class GameEventManager implements DropEventEmitter {
     this.joinedUsers.add(drop.userId);
     const spawnX = this.clamp(0.06 + this.random() * 0.88, 0.06, 0.94);
     const landingX = this.allocateLandingX(drop.username, this.activeEvent.targetX);
+    const launchDirection = this.random() < 0.5 ? -1 : 1;
+    const launchVelocityX = launchDirection * (0.065 + this.random() * 0.075);
     const score = this.calculateScore(landingX, this.activeEvent.targetX);
 
     this.output.emitPlayerDrop({
@@ -54,6 +58,7 @@ export class GameEventManager implements DropEventEmitter {
       targetX: this.activeEvent.targetX,
       spawnX,
       landingX,
+      launchVelocityX,
       score,
     });
     return true;
@@ -104,9 +109,13 @@ export class GameEventManager implements DropEventEmitter {
   }
 
   private allocateLandingX(username: string, targetX: number): number {
-    if (username.trim().toLowerCase() === GameEventManager.SPECIAL_USERNAME) {
-      this.occupiedLandingX.push(targetX);
-      return targetX;
+    const isSpecialUser = username.trim().toLowerCase() === GameEventManager.SPECIAL_USERNAME;
+    if (isSpecialUser && this.random() < GameEventManager.SPECIAL_TARGET_CHANCE) {
+      // İki rastgele değerin farkı hedefin merkezine doğru üçgensel bir dağılım üretir.
+      const offset = (this.random() - this.random()) * GameEventManager.SPECIAL_TARGET_SPREAD;
+      const landingX = this.clamp(targetX + offset, 0.04, 0.96);
+      this.occupiedLandingX.push(landingX);
+      return landingX;
     }
 
     if (this.availableLandingSlots.length === 0) {

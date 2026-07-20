@@ -13,5 +13,6 @@ export interface PlayerDropEvent extends DropEvent {
   targetX: number;
   spawnX: number;
   landingX: number;
+  launchVelocityX: number;
   score: number;
 }

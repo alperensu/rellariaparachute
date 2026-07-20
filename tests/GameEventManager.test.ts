@@ -40,27 +40,57 @@ describe("GameEventManager", () => {
     );
   });
 
-  it("always lands alperensu in the exact center of the bowl", () => {
+  it("usually lands alperensu near the bowl center without pinning them to it", () => {
     const emittedPlayers: PlayerDropEvent[] = [];
     const output: GameEventOutput = {
       emitEventStarted: vi.fn(),
       emitPlayerDrop: (event) => emittedPlayers.push(event),
       emitEventEnded: vi.fn(),
     };
-    const manager = new GameEventManager(output, { random: () => 0.5 });
-
-    for (let index = 0; index < 12; index += 1) {
-      manager.emitDrop(drop(String(index)));
-    }
+    const randomValues = [0.5, 0.2, 0.1, 0.8, 0.2, 0.3, 0.4];
+    const manager = new GameEventManager(output, {
+      random: () => randomValues.shift() ?? 0.5,
+    });
     manager.emitDrop({ ...drop("special"), username: "AlPeReNsU" });
 
-    const specialPlayer = emittedPlayers.at(-1);
-    expect(specialPlayer?.landingX).toBe(0.5);
+    const specialPlayer = emittedPlayers[0];
+    expect(specialPlayer?.landingX).not.toBe(0.5);
     expect(specialPlayer?.targetX).toBe(0.5);
-    expect(specialPlayer?.score).toBe(100);
-    expect(
-      emittedPlayers.slice(0, -1).every((player) => Math.abs(player.landingX - 0.5) >= 0.034),
-    ).toBe(true);
+    expect(Math.abs(specialPlayer!.landingX - specialPlayer!.targetX)).toBeLessThan(0.045);
+    expect(specialPlayer?.score).toBeGreaterThan(0);
+  });
+
+  it("does not guarantee alperensu a bowl landing", () => {
+    const emittedPlayers: PlayerDropEvent[] = [];
+    const output: GameEventOutput = {
+      emitEventStarted: vi.fn(),
+      emitPlayerDrop: (event) => emittedPlayers.push(event),
+      emitEventEnded: vi.fn(),
+    };
+    const randomValues = [0.5, 0.2, 0.95];
+    const manager = new GameEventManager(output, {
+      random: () => randomValues.shift() ?? 0.5,
+    });
+
+    manager.emitDrop({ ...drop("special"), username: "alperensu" });
+
+    expect(Math.abs(emittedPlayers[0]!.landingX - emittedPlayers[0]!.targetX)).toBeGreaterThanOrEqual(0.034);
+  });
+
+  it("gives every player a random left or right launch velocity", () => {
+    const emittedPlayers: PlayerDropEvent[] = [];
+    const output: GameEventOutput = {
+      emitEventStarted: vi.fn(),
+      emitPlayerDrop: (event) => emittedPlayers.push(event),
+      emitEventEnded: vi.fn(),
+    };
+    const manager = new GameEventManager(output, { random: () => 0.25 });
+
+    manager.emitDrop(drop("1"));
+
+    expect(emittedPlayers[0]!.launchVelocityX).toBeLessThan(0);
+    expect(Math.abs(emittedPlayers[0]!.launchVelocityX)).toBeGreaterThanOrEqual(0.065);
+    expect(Math.abs(emittedPlayers[0]!.launchVelocityX)).toBeLessThanOrEqual(0.14);
   });
 
   it("assigns a distinct landing position to every player in a crowded event", () => {
