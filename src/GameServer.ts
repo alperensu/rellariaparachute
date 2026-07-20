@@ -26,7 +26,9 @@ export class GameServer {
       chatroomId: config.chatroomId,
       pusherUrl: config.pusherUrl,
     });
-    this.realtime = new RealtimeGateway(this.httpServer, config.clientOrigin);
+    this.realtime = new RealtimeGateway(this.httpServer, config.clientOrigin, (event) => {
+      void this.kickChat.sendScoreMessage(event.username, event.score);
+    });
     this.gameEvents = new GameEventManager(this.realtime);
     this.commandHandler = new DropCommandHandler(this.kickChat, this.gameEvents);
     this.configureHttpRoutes();

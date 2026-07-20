@@ -7,7 +7,11 @@ export class RealtimeGateway implements GameEventOutput {
   private readonly io: SocketIOServer;
   private activeEvent: GameEventState | null = null;
 
-  constructor(server: HttpServer, clientOrigin: string) {
+  constructor(
+    server: HttpServer,
+    clientOrigin: string,
+    private readonly onPlayerDrop?: (event: PlayerDropEvent) => void,
+  ) {
     this.io = new SocketIOServer(server, {
       cors: {
         origin: clientOrigin === "*" ? "*" : clientOrigin,
@@ -31,6 +35,7 @@ export class RealtimeGateway implements GameEventOutput {
 
   emitPlayerDrop(event: PlayerDropEvent): void {
     this.io.emit("drop", event);
+    this.onPlayerDrop?.(event);
   }
 
   emitEventEnded(eventId: string): void {

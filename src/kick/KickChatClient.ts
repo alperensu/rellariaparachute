@@ -52,6 +52,33 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     return this.resolvedChatroomId;
   }
 
+  async sendScoreMessage(username: string, score: number): Promise<boolean> {
+    const message = score === 100
+      ? `@${username} TEBRİKLER! Tam 100 PUAN aldınız! 🎯🪂`
+      : `@${username} ${score} puan aldınız! 🪂`;
+
+    console.log(`[CHAT BILDIRIMI] ${message}`);
+
+    const chatroomId = this.resolvedChatroomId;
+    const botToken = process.env.KICK_BOT_TOKEN;
+    if (!chatroomId || !botToken) return false;
+
+    try {
+      const response = await fetch(`https://kick.com/api/v2/chatrooms/${chatroomId}/messages`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${botToken}`,
+        },
+        body: JSON.stringify({ content: message, type: "bot" }),
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("[KICK BOT] Chat mesajı gönderilemedi:", error);
+      return false;
+    }
+  }
+
   async start(): Promise<void> {
     if (this.connectionStatus !== "idle" && this.connectionStatus !== "stopped") return;
     this.stopping = false;
