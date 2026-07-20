@@ -75,6 +75,19 @@ describe("DropCommandHandler", () => {
     expect(emitDrop.mock.calls[0]?.[0]).not.toHaveProperty("kickEmote");
   });
 
+  it("accepts !atla as an exact, case-insensitive alias", () => {
+    const chat = new FakeChatSource();
+    const emitDrop = vi.fn();
+    const handler = new DropCommandHandler(chat, { emitDrop });
+    handler.start();
+
+    chat.send(message("!ATLA 🐱", "atla-1"));
+    chat.send(message("!atlama", "atla-2"));
+
+    expect(emitDrop).toHaveBeenCalledTimes(1);
+    expect(emitDrop).toHaveBeenCalledWith(expect.objectContaining({ emoji: "🐱" }));
+  });
+
   it("accepts case and optional arguments but rejects similar text", () => {
     const chat = new FakeChatSource();
     const emitDrop = vi.fn();

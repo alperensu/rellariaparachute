@@ -5,7 +5,7 @@ Bu aşamada backend bağlantısına temel Phaser ekranı eklenmiştir:
 1. Express HTTP sunucusu açılır.
 2. Kick kanalının `chatroom.id` değeri bulunur.
 3. Kick'in kullandığı Pusher WebSocket kanalına salt-okunur abone olunur.
-4. Sohbette `!drop` yazıldığında kullanıcı bilgisi yakalanır.
+4. Sohbette `!drop` veya `!atla` yazıldığında kullanıcı bilgisi yakalanır.
 5. Socket.io üzerinden frontend'e `drop` olayı gönderilir.
 6. `http://localhost:3000` adresindeki 1920×1080 şeffaf Phaser overlay'i olayı dinler.
 7. Kullanıcı adı, katılım kartı ve paraşüt animasyonu ekranda gösterilir.
@@ -59,7 +59,7 @@ Oyun ekranı:
 http://localhost:3000
 ```
 
-Ekranı açık bırakıp Kick sohbetine `!drop`, `!drop 😎` veya `!drop <Kick emote>` yazın. Komuttan sonra yazılan ilk Unicode emoji ya da Kick emote oyuncunun karakteri olur; sade `!drop` için `🙂` kullanılır. Kick emote görselleri sayısal kimliği doğrulayan aynı-origin sunucu proxy'sinden yüklenir. Boştaki ilk komut 60 saniyelik etkinliği başlatır ve ekranın altında rastgele konumda pembe, simli sıvı kasesi oluşturur. Kullanıcı anında ekranın üstünden paraşütle atlar. İniş noktası ekran geneline rastgele dağıtıldığı için kaseyi tutturmak zordur; kase dışına inen oyuncular 0 puan alır. Karakter ve puanı etkinlik bitene kadar sahnede kalır. Etkinlik boyunca her kullanıcı bir kez atlayabilir; süre bitince hedef ve bütün oyuncular kapanır, sonraki komut yeni konumlu etkinliği başlatır. Overlay'in arka planı tamamen şeffaftır; iniş alanı, paraşütçüler ve puanları dışında hiçbir arayüz gösterilmez.
+Ekranı açık bırakıp Kick sohbetine `!drop`, `!atla`, `!atla 😎` veya komutlardan birinin yanına bir Kick emote ekleyerek yazın. Komuttan sonra yazılan ilk Unicode emoji ya da Kick emote oyuncunun karakteri olur; sade komut için `🙂` kullanılır. Kick emote görselleri sayısal kimliği doğrulayan aynı-origin sunucu proxy'sinden yüklenir. Boştaki ilk komut 60 saniyelik etkinliği başlatır ve ekranın altında rastgele konumda pembe, simli sıvı kasesi oluşturur. Kullanıcı anında ekranın üstünden paraşütle atlar. İniş noktası ekran geneline rastgele dağıtıldığı için kaseyi tutturmak zordur; kase dışına inen oyuncular 0 puan alır. Karakter ve puanı etkinlik bitene kadar sahnede kalır. Etkinlik boyunca her kullanıcı bir kez atlayabilir; süre bitince hedef ve bütün oyuncular kapanır, sonraki komut yeni konumlu etkinliği başlatır. Overlay'in arka planı tamamen şeffaftır; iniş alanı, paraşütçüler ve puanları dışında hiçbir arayüz gösterilmez.
 
 OBS Browser Source ayarları:
 
@@ -83,7 +83,7 @@ Bağlantı başarılı olduğunda terminalde şuna benzer bir çıktı görünü
 [KICK] rellaria sohbetine bağlandı (chatroom: 123456).
 ```
 
-Bir izleyici sohbete `!drop` veya `!drop 😎` yazdığında:
+Bir izleyici sohbete `!drop`, `!atla` veya yanına bir karakter eklenmiş halini yazdığında:
 
 ```text
 [DROP] KullaniciAdi oyuna katıldı.

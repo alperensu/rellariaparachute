@@ -235,7 +235,7 @@ class ParachutePlayer {
 
     this.character = this.scene.add.text(0, 43, this.player.emoji || "🙂", {
       fontFamily: "Segoe UI Emoji, Apple Color Emoji, sans-serif",
-      fontSize: "92px",
+      fontSize: "74px",
     }).setOrigin(0.5);
 
     this.nameBackground = this.scene.add.graphics();
@@ -285,8 +285,8 @@ class ParachutePlayer {
     image.alt = "";
     image.decoding = "async";
     image.style.cssText = [
-      "width:96px",
-      "height:96px",
+      "width:80px",
+      "height:80px",
       "object-fit:contain",
       "pointer-events:none",
       "opacity:0",

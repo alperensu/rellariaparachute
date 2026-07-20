@@ -5,7 +5,7 @@ export interface DropEventEmitter {
   emitDrop(event: DropEvent): boolean | void;
 }
 
-const DROP_COMMAND = /^\s*!drop(?:\s+([\s\S]*?))?\s*$/iu;
+const JUMP_COMMAND = /^\s*!(?:drop|atla)(?:\s+([\s\S]*?))?\s*$/iu;
 const EMOJI_PATTERN = /\p{Extended_Pictographic}|\p{Emoji_Presentation}/u;
 const KICK_EMOTE_PATTERN = /\[emote:(\d{1,12}):([^\]\r\n]{1,100})\]/iu;
 const DEFAULT_CHARACTER = "🙂";
@@ -38,7 +38,7 @@ export class DropCommandHandler {
   }
 
   private handleMessage(message: ChatMessage): void {
-    const command = message.content.match(DROP_COMMAND);
+    const command = message.content.match(JUMP_COMMAND);
     if (!command || this.seenMessageIds.has(message.id)) return;
     this.remember(message.id);
 
