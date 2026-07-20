@@ -33,74 +33,111 @@ class PinkLandingBowl {
   constructor(scene, x) {
     this.scene = scene;
     this.x = x;
-    // Kase tabanı yayın kadrajının biraz dışında kalsın; sıvı yüzeyi görünür kalır.
-    this.y = 1_035;
+    this.y = 1_015;
     this.container = scene.add.container(x, this.y).setDepth(4).setScale(0).setAlpha(0);
-    this.sparkles = [];
+    this.bubbles = [];
+    this.bubbleTimer = 0;
     this.build();
     this.animateIn();
   }
 
   build() {
-    const shadow = this.scene.add.ellipse(0, 78, 470, 62, 0x4d103d, 0.28);
-    const glass = this.scene.add.graphics();
-    glass.fillStyle(0xff7ccc, 0.2);
-    glass.fillEllipse(0, 20, 440, 175);
-    glass.lineStyle(7, 0xffb7e5, 0.92);
-    glass.strokeEllipse(0, 20, 440, 175);
+    const shadow = this.scene.add.ellipse(0, 52, 430, 52, 0x3d0b30, 0.45);
+    const glow = this.scene.add.ellipse(0, 0, 470, 165, 0xff2fa4, 0.22);
 
-    const liquidBack = this.scene.add.ellipse(0, -18, 414, 102, 0x9d176f, 0.92);
-    const liquid = this.scene.add.ellipse(0, -25, 388, 83, 0xff48b0, 0.95);
-    const liquidGlow = this.scene.add.ellipse(-35, -39, 245, 38, 0xffb9e5, 0.34);
-    const rim = this.scene.add.graphics();
-    rim.lineStyle(9, 0xffd6ef, 0.96);
-    rim.strokeEllipse(0, -21, 430, 112);
-    rim.lineStyle(3, 0xffffff, 0.82);
-    rim.strokeEllipse(0, -27, 395, 85);
+    const bowlGraphics = this.scene.add.graphics();
+    bowlGraphics.fillStyle(0xff80d5, 0.16);
+    bowlGraphics.fillEllipse(0, 10, 430, 155);
 
-    this.container.add([shadow, glass, liquidBack, liquid, liquidGlow, rim]);
+    const liquidBack = this.scene.add.ellipse(0, -20, 396, 88, 0x8a0b5a, 0.95);
+    const liquidMain = this.scene.add.ellipse(0, -26, 376, 74, 0xff1a9e, 0.96);
+    const liquidGlow = this.scene.add.ellipse(-30, -36, 235, 34, 0xffc4ed, 0.4);
+
+    const glassRim = this.scene.add.graphics();
+    glassRim.lineStyle(9, 0xffd6f3, 0.96);
+    glassRim.strokeEllipse(0, -22, 415, 98);
+    glassRim.lineStyle(3, 0xffffff, 0.92);
+    glassRim.strokeEllipse(0, -27, 384, 78);
+    glassRim.lineStyle(5, 0xff99dc, 0.75);
+    glassRim.strokeEllipse(0, 10, 430, 155);
+
+    glassRim.lineStyle(4, 0xffffff, 0.55);
+    glassRim.beginPath();
+    glassRim.arc(-145, 18, 52, 0.5, 1.8);
+    glassRim.strokePath();
+
+    this.container.add([shadow, glow, bowlGraphics, liquidBack, liquidMain, liquidGlow, glassRim]);
 
     this.scene.tweens.add({
-      targets: liquid,
-      scaleX: 0.96,
-      scaleY: 1.08,
-      duration: 1_300,
+      targets: liquidMain,
+      scaleX: 0.97,
+      scaleY: 1.06,
+      duration: 1_200,
       yoyo: true,
       repeat: -1,
       ease: "Sine.inOut",
     });
+
     this.scene.tweens.add({
       targets: liquidGlow,
-      x: 70,
-      alpha: 0.16,
-      duration: 1_700,
+      x: 60,
+      alpha: 0.18,
+      duration: 1_600,
       yoyo: true,
       repeat: -1,
       ease: "Sine.inOut",
     });
 
-    for (let index = 0; index < 22; index += 1) {
-      const sparkle = this.scene.add.circle(
-        -170 + ((index * 67) % 340),
-        -49 + ((index * 29) % 54),
-        2 + (index % 4),
-        index % 3 === 0 ? 0xffffff : 0xffd0ec,
-        0.35 + (index % 4) * 0.15,
-      );
-      this.sparkles.push(sparkle);
-      this.container.add(sparkle);
-      this.scene.tweens.add({
-        targets: sparkle,
-        y: sparkle.y - 16 - (index % 4) * 4,
-        alpha: 0.08,
-        scaleX: 0.25,
-        scaleY: 0.25,
-        duration: 650 + (index % 6) * 170,
-        delay: (index % 7) * 110,
-        yoyo: true,
-        repeat: -1,
-        ease: "Sine.inOut",
-      });
+    for (let index = 0; index < 14; index += 1) {
+      this.spawnBubble(true);
+    }
+  }
+
+  spawnBubble(isInitial = false) {
+    if (!this.container?.active) return;
+    const localX = -155 + Math.random() * 310;
+    const startY = isInitial ? -20 - Math.random() * 140 : -20;
+    const radius = 3 + Math.random() * 7;
+    const bubbleContainer = this.scene.add.container(localX, startY);
+
+    const circle = this.scene.add.circle(0, 0, radius, 0xffe6f7, 0.55);
+    circle.setStrokeStyle(1.5, 0xffffff, 0.9);
+    const shine = this.scene.add.circle(-radius * 0.3, -radius * 0.3, radius * 0.25, 0xffffff, 0.85);
+    bubbleContainer.add([circle, shine]);
+
+    this.container.add(bubbleContainer);
+    this.bubbles.push(bubbleContainer);
+
+    const floatDistance = 140 + Math.random() * 170;
+    const duration = 1_800 + Math.random() * 1_600;
+    const swayAmount = 15 + Math.random() * 25;
+    const swayDirection = Math.random() < 0.5 ? -1 : 1;
+
+    this.scene.tweens.add({
+      targets: bubbleContainer,
+      y: startY - floatDistance,
+      x: localX + swayAmount * swayDirection,
+      alpha: { from: isInitial ? 0.7 : 0.88, to: 0 },
+      scaleX: { from: 0.7, to: 1.3 },
+      scaleY: { from: 0.7, to: 1.3 },
+      duration,
+      ease: "Sine.out",
+      onComplete: () => {
+        const index = this.bubbles.indexOf(bubbleContainer);
+        if (index >= 0) this.bubbles.splice(index, 1);
+        bubbleContainer.destroy();
+      },
+    });
+  }
+
+  update(time, delta) {
+    if (!this.container?.active) return;
+    this.bubbleTimer += delta;
+    if (this.bubbleTimer >= 160) {
+      this.bubbleTimer = 0;
+      if (this.bubbles.length < 28) {
+        this.spawnBubble(false);
+      }
     }
   }
 
@@ -110,7 +147,7 @@ class PinkLandingBowl {
       alpha: 1,
       scaleX: BOWL_SCALE,
       scaleY: BOWL_SCALE,
-      y: this.y - 18,
+      y: this.y - 12,
       duration: 650,
       ease: "Back.out",
     });
@@ -122,41 +159,49 @@ class PinkLandingBowl {
 
   splash(worldX) {
     const localX = Phaser.Math.Clamp(worldX - this.x, -100, 100);
-    for (let index = 0; index < 14; index += 1) {
-      const droplet = this.scene.add.circle(
-        this.x + localX,
-        this.y - 55,
-        4 + (index % 4),
-        index % 3 === 0 ? 0xffffff : 0xff4fb5,
-        0.95,
-      ).setDepth(13);
-      const angle = Math.PI * (0.15 + (index / 13) * 0.7);
-      const distance = 55 + (index % 5) * 18;
-      this.scene.tweens.add({
-        targets: droplet,
-        x: droplet.x + Math.cos(angle) * distance,
-        y: droplet.y - Math.sin(angle) * distance,
-        alpha: 0,
-        scaleX: 0.25,
-        scaleY: 0.25,
-        duration: 520 + (index % 3) * 100,
-        ease: "Quad.out",
-        onComplete: () => droplet.destroy(),
-      });
+    for (let index = 0; index < 18; index += 1) {
+      this.spawnSplashBubble(localX, index);
     }
 
     this.scene.tweens.add({
       targets: this.container,
-      scaleX: BOWL_SCALE * 1.045,
-      scaleY: BOWL_SCALE * 0.94,
+      scaleX: BOWL_SCALE * 1.05,
+      scaleY: BOWL_SCALE * 0.93,
       duration: 120,
       yoyo: true,
       ease: "Sine.inOut",
     });
   }
 
+  spawnSplashBubble(localX, index) {
+    const droplet = this.scene.add.circle(
+      this.x + localX + (-15 + Math.random() * 30),
+      this.y - 45,
+      4 + (index % 5),
+      index % 3 === 0 ? 0xffffff : 0xff4fb5,
+      0.95,
+    ).setDepth(13);
+    const angle = Math.PI * (0.12 + (index / 17) * 0.76);
+    const distance = 60 + (index % 5) * 22;
+    this.scene.tweens.add({
+      targets: droplet,
+      x: droplet.x + Math.cos(angle) * distance,
+      y: droplet.y - Math.sin(angle) * distance,
+      alpha: 0,
+      scaleX: 0.2,
+      scaleY: 0.2,
+      duration: 550 + (index % 4) * 120,
+      ease: "Quad.out",
+      onComplete: () => droplet.destroy(),
+    });
+  }
+
   destroy() {
     if (!this.container?.active) return;
+    for (const bubble of this.bubbles) {
+      if (bubble?.active) bubble.destroy();
+    }
+    this.bubbles = [];
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
@@ -180,11 +225,11 @@ class ParachutePlayer {
     this.displayScale = displayScale;
     this.isLanded = false;
     this.isAirborne = true;
+    this.isBouncing = false;
     this.landedInBowl = false;
     this.velocityX = Number.isFinite(player.launchVelocityX)
       ? player.launchVelocityX * WORLD_WIDTH
       : (Math.random() < 0.5 ? -1 : 1) * (125 + Math.random() * 145);
-    this.recoilX = 0;
     this.tiltAngle = 0;
     this.fallElapsed = 0;
     this.fallDuration = 5_800 + Math.random() * 2_200;
@@ -330,28 +375,43 @@ class ParachutePlayer {
     const deltaSeconds = Math.min(delta, 50) / 1_000;
     this.fallElapsed += delta;
     const progress = Phaser.Math.Clamp(this.fallElapsed / this.fallDuration, 0, 1);
-    const remainingSeconds = Math.max((this.fallDuration - this.fallElapsed) / 1_000, 0.28);
 
-    if (Math.abs(this.recoilX) > 0.1) {
-      this.recoilX *= Math.pow(0.85, deltaSeconds * 60);
+    if (this.isBouncing) {
+      this.velocityX *= Math.pow(0.988, deltaSeconds * 60);
+      this.container.x += this.velocityX * deltaSeconds;
+      this.landingX = this.container.x;
     } else {
-      this.recoilX = 0;
+      const remainingSeconds = Math.max((this.fallDuration - this.fallElapsed) / 1_000, 0.28);
+      const desiredVelocity = (this.landingX - this.container.x) / remainingSeconds;
+      const steeringStrength = progress < 0.68 ? 95 : 300;
+      const velocityChange = Phaser.Math.Clamp(
+        desiredVelocity - this.velocityX,
+        -steeringStrength * deltaSeconds,
+        steeringStrength * deltaSeconds,
+      );
+
+      this.velocityX += velocityChange;
+      this.container.x += this.velocityX * deltaSeconds;
     }
 
-    const desiredVelocity = (this.landingX - this.container.x) / remainingSeconds;
-    const steeringStrength = progress < 0.68 ? 90 : 320;
-    const velocityChange = Phaser.Math.Clamp(
-      desiredVelocity - this.velocityX,
-      -steeringStrength * deltaSeconds,
-      steeringStrength * deltaSeconds,
-    );
-
-    this.velocityX += velocityChange;
-    this.container.x += (this.velocityX + this.recoilX) * deltaSeconds;
-    if (this.container.x <= AIRBORNE_MIN_X || this.container.x >= AIRBORNE_MAX_X) {
-      this.container.x = Phaser.Math.Clamp(this.container.x, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
-      this.velocityX *= -0.72;
-      this.recoilX *= -0.5;
+    if (this.container.x <= AIRBORNE_MIN_X) {
+      this.container.x = AIRBORNE_MIN_X;
+      if (this.velocityX < 0) {
+        this.velocityX = Math.abs(this.velocityX) * 0.84 + 110;
+        this.isBouncing = true;
+        this.landingX = this.container.x;
+        this.tiltAngle = 28;
+        this.createWallSpark(AIRBORNE_MIN_X, this.container.y, 1);
+      }
+    } else if (this.container.x >= AIRBORNE_MAX_X) {
+      this.container.x = AIRBORNE_MAX_X;
+      if (this.velocityX > 0) {
+        this.velocityX = -Math.abs(this.velocityX) * 0.84 - 110;
+        this.isBouncing = true;
+        this.landingX = this.container.x;
+        this.tiltAngle = -28;
+        this.createWallSpark(AIRBORNE_MAX_X, this.container.y, -1);
+      }
     }
 
     const targetLandingY = this.getLandingY();
@@ -364,16 +424,16 @@ class ParachutePlayer {
     }
 
     const sway = Math.sin(progress * Math.PI * 7) * 2.5;
-    this.container.angle = Phaser.Math.Clamp(this.velocityX / 34 + this.tiltAngle, -25, 25) + sway;
+    this.container.angle = Phaser.Math.Clamp(this.velocityX / 28 + this.tiltAngle, -32, 32) + sway;
 
     if (progress >= 1) this.land();
   }
 
   collideWith(other, now) {
     if (!this.isAirborne || !other.isAirborne) return;
-    if (now - this.lastCollisionAt < 120 || now - other.lastCollisionAt < 120) return;
+    if (now - this.lastCollisionAt < 100 || now - other.lastCollisionAt < 100) return;
 
-    const horizontalRadius = 56 * (this.displayScale + other.displayScale);
+    const horizontalRadius = 54 * (this.displayScale + other.displayScale);
     const verticalRadius = 80 * (this.displayScale + other.displayScale);
     const deltaX = other.container.x - this.container.x;
     const deltaY = other.container.y - this.container.y;
@@ -385,21 +445,17 @@ class ParachutePlayer {
     this.container.x -= direction * overlap * 0.5;
     other.container.x += direction * overlap * 0.5;
 
-    const incomingSpeed = Math.abs((this.velocityX + this.recoilX) - (other.velocityX + other.recoilX));
-    const impulseStrength = Phaser.Math.Clamp(140 + incomingSpeed * 0.75 + overlap * 5, 160, 420);
+    const incomingSpeed = Math.abs(this.velocityX - other.velocityX);
+    const bounceSpeed = Phaser.Math.Clamp(220 + incomingSpeed * 0.95 + overlap * 6, 250, 650);
 
-    this.recoilX = -direction * impulseStrength * 1.15;
-    other.recoilX = direction * impulseStrength * 1.15;
+    this.velocityX = -direction * bounceSpeed;
+    other.velocityX = direction * bounceSpeed;
 
-    this.velocityX = -direction * impulseStrength * 0.6;
-    other.velocityX = direction * impulseStrength * 0.6;
+    this.isBouncing = true;
+    other.isBouncing = true;
 
-    this.tiltAngle = -direction * Math.min(28, impulseStrength * 0.1);
-    other.tiltAngle = direction * Math.min(28, impulseStrength * 0.1);
-
-    const deflection = direction * (impulseStrength * 0.45 + overlap * 2.2);
-    this.landingX = Phaser.Math.Clamp(this.landingX - deflection, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
-    other.landingX = Phaser.Math.Clamp(other.landingX + deflection, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
+    this.tiltAngle = -direction * Math.min(32, bounceSpeed * 0.1);
+    other.tiltAngle = direction * Math.min(32, bounceSpeed * 0.1);
 
     const bumpX = (this.container.x + other.container.x) / 2;
     const bumpY = (this.container.y + other.container.y) / 2;
@@ -420,6 +476,31 @@ class ParachutePlayer {
       ease: "Quad.out",
       onComplete: () => ring.destroy(),
     });
+  }
+
+  createWallSpark(x, y, dir) {
+    for (let index = 0; index < 6; index += 1) {
+      const spark = this.scene.add.circle(
+        x,
+        y + (-20 + index * 8),
+        3 + (index % 3),
+        0xffb7e5,
+        0.9,
+      ).setDepth(15);
+      const angle = (dir > 0 ? 0 : Math.PI) + (-0.5 + (index / 5)) * 0.8;
+      const distance = 40 + (index % 4) * 15;
+      this.scene.tweens.add({
+        targets: spark,
+        x: spark.x + Math.cos(angle) * distance,
+        y: spark.y + Math.sin(angle) * distance,
+        alpha: 0,
+        scaleX: 0.2,
+        scaleY: 0.2,
+        duration: 250 + index * 40,
+        ease: "Quad.out",
+        onComplete: () => spark.destroy(),
+      });
+    }
   }
 
   land() {
@@ -537,6 +618,7 @@ class ParachuteScene extends Phaser.Scene {
   }
 
   update(time, delta) {
+    this.bowl?.update(time, delta);
     const players = [...this.players];
     for (const player of players) player.updateFall(delta);
     for (let leftIndex = 0; leftIndex < players.length; leftIndex += 1) {
