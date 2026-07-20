@@ -544,8 +544,6 @@ class ParachutePlayer {
       }
     }
 
-    this.showScoreToast(this.player.username, finalScore);
-
     this.scene.tweens.add({
       targets: this.container,
       scaleY: this.displayScale * 0.82,
@@ -575,51 +573,6 @@ class ParachutePlayer {
       scaleY: 1,
       duration: 330,
       ease: "Back.out",
-    });
-  }
-
-  showScoreToast(username, score) {
-    const toast = this.scene.add.container(960, 110).setDepth(30).setScale(0);
-    const bg = this.scene.add.graphics();
-    bg.fillStyle(0x3d0d31, 0.94);
-    bg.fillRoundedRect(-250, -27, 500, 54, 27);
-    bg.lineStyle(3, 0xff4fb5, 1);
-    bg.strokeRoundedRect(-250, -27, 500, 54, 27);
-
-    const icon = this.scene.add.text(-215, 0, "💬", { fontSize: "28px" }).setOrigin(0.5);
-    const labelText = score === 100
-      ? `@${username} TEBRİKLER! TAM 100 PUAN! 🎯`
-      : `@${username} ${score} PUAN ALDINIZ! 🪂`;
-
-    const txt = this.scene.add.text(-185, 0, labelText, {
-      fontFamily: "Arial Black, Arial",
-      fontSize: "19px",
-      color: "#ffffff",
-      stroke: "#3d0d31",
-      strokeThickness: 3,
-    }).setOrigin(0, 0.5);
-
-    toast.add([bg, icon, txt]);
-
-    this.scene.tweens.add({
-      targets: toast,
-      scaleX: 1,
-      scaleY: 1,
-      y: 155,
-      duration: 360,
-      ease: "Back.out",
-    });
-
-    this.scene.time.delayedCall(3400, () => {
-      if (!toast?.active) return;
-      this.scene.tweens.add({
-        targets: toast,
-        alpha: 0,
-        y: 100,
-        duration: 350,
-        ease: "Quad.in",
-        onComplete: () => toast.destroy(),
-      });
     });
   }
 
