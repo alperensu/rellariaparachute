@@ -75,10 +75,23 @@ export class GameServer {
     this.started = false;
   }
 
+  private getPublicBaseUrl(req: express.Request): string {
+    if (process.env.PUBLIC_BASE_URL?.trim()) {
+      return process.env.PUBLIC_BASE_URL.trim().replace(/\/+$/, "");
+    }
+    const hostHeader = req.headers["x-forwarded-host"] as string || req.headers.host;
+    if (hostHeader) {
+      const proto = (req.headers["x-forwarded-proto"] as string) || (req.secure ? "https" : "http");
+      const normalizedProto = hostHeader.includes("onrender.com") ? "https" : proto;
+      return `${normalizedProto}://${hostHeader}`;
+    }
+    return this.config.publicBaseUrl;
+  }
+
   private configureHttpRoutes(): void {
     this.app.disable("x-powered-by");
 
-    this.app.get("/auth/kick", (_request, response) => {
+    this.app.get("/auth/kick", (request, response) => {
       const state = randomBytes(16).toString("hex");
       const codeVerifier = randomBytes(32).toString("base64url");
       const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
@@ -88,7 +101,8 @@ export class GameServer {
         expiresAt: Date.now() + 10 * 60 * 1000,
       });
 
-      const redirectUri = encodeURIComponent(`${this.config.publicBaseUrl}/auth/kick/callback`);
+      const baseUrl = this.getPublicBaseUrl(request);
+      const redirectUri = encodeURIComponent(`${baseUrl}/auth/kick/callback`);
       const clientId = encodeURIComponent(this.config.clientId);
       const scopes = encodeURIComponent("user:read channel:read channel:write chat:write chat:read streamkey:read events:subscribe moderator:manage");
       const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scopes}&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}`;
@@ -108,7 +122,8 @@ export class GameServer {
       const codeVerifier = session?.codeVerifier || "";
 
       try {
-        const redirectUri = `${this.config.publicBaseUrl}/auth/kick/callback`;
+        const baseUrl = this.getPublicBaseUrl(request);
+        const redirectUri = `${baseUrl}/auth/kick/callback`;
         const params = new URLSearchParams();
         params.append("grant_type", "authorization_code");
         params.append("client_id", this.config.clientId);
