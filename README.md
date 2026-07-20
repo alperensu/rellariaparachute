@@ -1,67 +1,67 @@
-# Rellaria Parachute Drop — Adım 2
+# Rellaria Parachute Drop 🪂
 
-Bu aşamada backend bağlantısına temel Phaser ekranı eklenmiştir:
+Kick yayıncıları için interaktif paraşüt drop overlay'i. İzleyiciler sohbete `!drop` veya `!atla` yazarak 1920×1080 şeffaf OBS overlay'ine paraşütle atlar; kaseye inen kazanır, puan Kick sohbetine otomatik yazılır.
 
-1. Express HTTP sunucusu açılır.
-2. Kick kanalının `chatroom.id` değeri bulunur.
-3. Kick'in kullandığı Pusher WebSocket kanalına salt-okunur abone olunur.
-4. Sohbette `!drop` veya `!atla` yazıldığında kullanıcı bilgisi yakalanır.
-5. Socket.io üzerinden frontend'e `drop` olayı gönderilir.
-6. `http://localhost:3000` adresindeki 1920×1080 şeffaf Phaser overlay'i olayı dinler.
-7. Kullanıcı adı, katılım kartı ve paraşüt animasyonu ekranda gösterilir.
+## Özellikler
 
-Yerçekimi, düşen karakter ve gerçek paraşüt fiziği sonraki adımlarda eklenecektir.
+- **Şeffaf Phaser Overlay**: 1920×1080, OBS Browser Source uyumlu
+- **Kick Sohbet Entegrasyonu**: Pusher WebSocket ile salt-okunur sohbet dinleme
+- **Paraşüt Fiziği**: Havada çarpışma, sekme, rüzgar etkisi
+- **Pembe İksir Kasesi**: Rastgele konumda beliren hedef; kaseye inenler puan alır
+- **Kick Bot Mesajları**: Resmi Kick OAuth 2.1 PKCE ile sohbete puan bildirimi
+- **Kick Emote Desteği**: `!drop [emote:id:isim]` ile özel Kick emote karakteri
+- **Otomatik Ölçekleme**: Katılımcı sayısına göre oyuncu boyutu dinamik ayarlanır
+- **60 Saniyelik Etkinlikler**: Her etkinlikte kullanıcı başına tek atlayış, süre bitince temizlenir
 
 ## Kurulum
-
-Projede paketler kayıtlıdır. Sıfırdan kurulacaksa kullanılan komutlar:
-
-```bash
-npm install express socket.io ws dotenv phaser
-npm install --save-dev typescript tsx vitest @types/node @types/express @types/ws
-```
-
-Projeyi hazırlamak için:
 
 ```bash
 npm install
 ```
 
-`.env.example` dosyasını `.env` adıyla kopyalayın:
+`.env.example` dosyasını `.env` adıyla kopyalayın ve değerleri doldurun:
 
-```env
-KICK_CHANNEL_SLUG=rellaria
-KICK_CHATROOM_ID=
-KICK_PUSHER_URL=wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679
-PORT=3000
-CLIENT_ORIGIN=*
+```bash
+cp .env.example .env
 ```
 
-`KICK_CHATROOM_ID` boş bırakılırsa backend şu herkese açık kanal bilgisinden `chatroom.id` değerini otomatik almaya çalışır. Kick, Node.js isteğine 403 döndürürse sistemdeki `curl` otomatik fallback olarak kullanılır:
+### Gerekli Ortam Değişkenleri
 
-```text
-https://kick.com/api/v2/channels/rellaria/chatroom
-```
-
-Kick/Cloudflare bu isteği sunucuda engellerse adresi normal tarayıcıda açın, JSON içindeki `chatroom.id` sayısını `.env` dosyasındaki `KICK_CHATROOM_ID` alanına yazın.
+| Değişken | Açıklama |
+|---|---|
+| `KICK_CHANNEL_SLUG` | Kick kanal adı (örn: `rellaria`) |
+| `KICK_CLIENT_ID` | Kick Developer Portal'dan alınan Client ID |
+| `KICK_CLIENT_SECRET` | Kick Developer Portal'dan alınan Client Secret |
+| `KICK_BOT_TOKEN` | OAuth ile otomatik alınır, elle de girilebilir |
+| `PUBLIC_BASE_URL` | Canlı URL (örn: `https://rellariaparachute.onrender.com`) |
+| `PORT` | Sunucu portu (varsayılan: `3000`) |
 
 ## Çalıştırma
 
-Geliştirme:
+### Geliştirme
 
 ```bash
 npm run dev
 ```
 
-Oyun ekranı:
+### Üretim
 
-```text
-http://localhost:3000
+```bash
+npm run build
+npm start
 ```
 
-Ekranı açık bırakıp Kick sohbetine `!drop`, `!atla`, `!atla 😎` veya komutlardan birinin yanına bir Kick emote ekleyerek yazın. Komuttan sonra yazılan ilk Unicode emoji ya da Kick emote oyuncunun karakteri olur; sade komut için `🙂` kullanılır. Kick emote görselleri sayısal kimliği doğrulayan aynı-origin sunucu proxy'sinden yüklenir. Boştaki ilk komut 60 saniyelik etkinliği başlatır ve ekranın altında rastgele konumda pembe, simli sıvı kasesi oluşturur. Kullanıcı ekranın üstünden paraşütle atlar, rastgele bir hızla sağa veya sola savrulur ve havadaki diğer kullanıcılara çarpıp sekebilir. İniş noktaları etkinlik boyunca boş slotlara dağıtılır; katılımcı sayısı arttıkça oyuncular otomatik küçülür. `alperensu` hedefe yakın inmek için %70 avantaja sahiptir, ancak merkeze sabitlenmez ve kaseyi tutturması garanti değildir. Diğer kullanıcıların kaseyi tutturması zordur; kase dışına inen oyuncular 0 puan alır. Karakter ve puanı etkinlik bitene kadar sahnede kalır. Etkinlik boyunca her kullanıcı bir kez atlayabilir; süre bitince hedef ve bütün oyuncular kapanır, sonraki komut yeni konumlu etkinliği başlatır. Overlay'in arka planı tamamen şeffaftır; iniş alanı, paraşütçüler ve puanları dışında hiçbir arayüz gösterilmez.
+## Kick Bot Yetkilendirmesi (OAuth 2.1 PKCE)
 
-OBS Browser Source ayarları:
+Bot'un Kick sohbetine mesaj yazabilmesi için yayıncının yetkilendirme yapması gerekir:
+
+1. Tarayıcıda açın: `https://<sunucu-adresiniz>/auth/kick`
+2. Kick izin ekranında **"Erişim İzni Ver"** butonuna tıklayın
+3. Token otomatik olarak sunucuya kaydedilir
+
+> **Not:** Sunucu her yeniden başladığında token kaybolur. Kalıcı olması için Render.com Environment'a `KICK_BOT_TOKEN` olarak kaydedin.
+
+## OBS Ayarları
 
 ```text
 URL: http://localhost:3000
@@ -70,51 +70,24 @@ Yükseklik: 1080
 FPS: 60
 ```
 
-Üretim derlemesi:
+## Komutlar
 
-```bash
-npm run build
-npm start
-```
+| Komut | Açıklama |
+|---|---|
+| `!drop` | Varsayılan 🙂 karakteriyle atla |
+| `!atla` | `!drop` ile aynı (Türkçe alias) |
+| `!drop 🦄` | Belirtilen emoji ile atla |
+| `!drop [emote:id:isim]` | Kick emote ile atla |
 
-Bağlantı başarılı olduğunda terminalde şuna benzer bir çıktı görünür:
+## API Endpoint'leri
 
-```text
-[KICK] rellaria sohbetine bağlandı (chatroom: 123456).
-```
-
-Bir izleyici sohbete `!drop`, `!atla` veya yanına bir karakter eklenmiş halini yazdığında:
-
-```text
-[DROP] KullaniciAdi oyuna katıldı.
-```
-
-Socket.io bütün bağlı frontend istemcilerine şu olayı yollar:
-
-```ts
-socket.on("drop", (player) => {
-  // {
-  //   messageId: "...",
-  //   userId: "42",
-  //   username: "KullaniciAdi",
-  //   receivedAt: "2026-07-20T12:00:00Z"
-  // }
-});
-```
-
-Sunucu durumu: `http://localhost:3000/health`
-
-## Kullanılan Kick yöntemi
-
-`@retconned/kick-js` paketi güncel görünse de kanal bilgisini almak için Puppeteer ve Stealth eklentisi çalıştırıyor. Bu proje bunun yerine doğrudan `ws` kullanır:
-
-```text
-wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679
-channel: chatrooms.{chatroomId}.v2
-event: App\Events\ChatMessageEvent
-```
-
-Bu bağlantı salt-okunurdur ve Kick kullanıcı şifresi, cookie veya token istemez. Ancak resmî API değildir; Kick altyapıyı değiştirirse `KICK_PUSHER_URL` veya protokol sınıfının güncellenmesi gerekebilir. Bağlantı koptuğunda backend üstel gecikmeyle otomatik yeniden bağlanır.
+| Endpoint | Açıklama |
+|---|---|
+| `GET /health` | Sunucu ve Kick bağlantı durumu |
+| `GET /api/info` | Uygulama bilgisi |
+| `GET /api/reload` | Tüm OBS overlay'lerini uzaktan yenile |
+| `GET /auth/kick` | OAuth 2.1 yetkilendirme başlat |
+| `GET /auth/kick/callback` | OAuth callback (otomatik) |
 
 ## Test
 
@@ -122,3 +95,15 @@ Bu bağlantı salt-okunurdur ve Kick kullanıcı şifresi, cookie veya token ist
 npm test
 npm run build
 ```
+
+## Teknik Detaylar
+
+- **Backend**: Node.js + Express + Socket.io + TypeScript
+- **Frontend**: Phaser 4 (şeffaf canvas overlay)
+- **Kick Bağlantısı**: Pusher WebSocket (`wss://ws-us2.pusher.com`) ile salt-okunur sohbet
+- **Chat Bot**: Kick OAuth 2.1 PKCE + Resmi `api.kick.com/public/v1/chat` endpoint'i
+- **Hosting**: Render.com (ücretsiz plan uyumlu)
+
+## Lisans
+
+MIT

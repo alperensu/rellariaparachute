@@ -3,9 +3,18 @@ import { promisify } from "node:util";
 
 interface KickChannelResponse {
   id?: number;
+  user_id?: number;
+  user?: {
+    id?: number;
+  };
   chatroom?: {
     id?: number;
   };
+}
+
+export interface ResolvedChannel {
+  chatroomId: number;
+  broadcasterId: number;
 }
 
 const execFileAsync = promisify(execFile);
@@ -13,7 +22,7 @@ const execFileAsync = promisify(execFile);
 export class KickChannelResolver {
   constructor(private readonly fetchImplementation: typeof fetch = fetch) {}
 
-  async resolveChatroomId(channelSlug: string): Promise<number> {
+  async resolveChannel(channelSlug: string): Promise<ResolvedChannel> {
     const encodedSlug = encodeURIComponent(channelSlug);
     const urls = [
       `https://kick.com/api/v2/channels/${encodedSlug}/chatroom`,
@@ -22,16 +31,16 @@ export class KickChannelResolver {
 
     for (const url of urls) {
       const channel = await this.tryNativeFetch(url);
-      const id = this.extractChatroomId(channel);
-      if (id) return id;
+      const resolved = this.extractIds(channel);
+      if (resolved) return resolved;
     }
 
     // Kick bazı Node.js TLS istemcilerini 403 ile engelliyor. Sistemdeki curl,
     // tarayıcıyla aynı herkese açık endpoint'i okuyabildiği için güvenli fallback'tir.
     for (const url of urls) {
       const channel = await this.tryCurl(url);
-      const id = this.extractChatroomId(channel);
-      if (id) return id;
+      const resolved = this.extractIds(channel);
+      if (resolved) return resolved;
     }
 
     throw new Error(
@@ -39,6 +48,12 @@ export class KickChannelResolver {
         `Tarayıcıda https://kick.com/api/v2/channels/${encodedSlug}/chatroom adresini açıp ` +
         "JSON içindeki id değerini KICK_CHATROOM_ID olarak ayarlayın.",
     );
+  }
+
+  /** @deprecated Use resolveChannel instead */
+  async resolveChatroomId(channelSlug: string): Promise<number> {
+    const result = await this.resolveChannel(channelSlug);
+    return result.chatroomId;
   }
 
   private async tryNativeFetch(url: string): Promise<KickChannelResponse | null> {
@@ -86,8 +101,19 @@ export class KickChannelResolver {
     }
   }
 
-  private extractChatroomId(channel: KickChannelResponse | null): number | undefined {
-    const id = channel?.chatroom?.id ?? channel?.id;
-    return Number.isInteger(id) && id && id > 0 ? id : undefined;
+  private extractIds(channel: KickChannelResponse | null): ResolvedChannel | undefined {
+    const chatroomId = channel?.chatroom?.id ?? channel?.id;
+    const broadcasterId = channel?.user_id ?? channel?.user?.id ?? channel?.id;
+    if (
+      Number.isInteger(chatroomId) && chatroomId && chatroomId > 0 &&
+      Number.isInteger(broadcasterId) && broadcasterId && broadcasterId > 0
+    ) {
+      return { chatroomId, broadcasterId };
+    }
+    // chatroom id bulundu ama broadcaster id bulunamadıysa yine döndür
+    if (Number.isInteger(chatroomId) && chatroomId && chatroomId > 0) {
+      return { chatroomId, broadcasterId: chatroomId };
+    }
+    return undefined;
   }
 }

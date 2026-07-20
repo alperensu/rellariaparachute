@@ -1,6 +1,4 @@
-import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
-import { promisify } from "node:util";
 import WebSocket, { type RawData } from "ws";
 import type { ChatMessage } from "../domain/ChatMessage.js";
 import { KickChannelResolver } from "./KickChannelResolver.js";
@@ -10,8 +8,6 @@ import {
   PUSHER_PING_MESSAGE,
   PUSHER_PONG_MESSAGE,
 } from "./KickProtocol.js";
-
-const execFileAsync = promisify(execFile);
 
 export type KickConnectionStatus =
   | "idle"
@@ -35,12 +31,14 @@ export interface ChatMessageSource {
 export class KickChatClient extends EventEmitter implements ChatMessageSource {
   private readonly channelResolver: KickChannelResolver;
   private resolvedChatroomId?: number;
+  private resolvedBroadcasterId?: number;
   private socket: WebSocket | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectAttempt = 0;
   private stopping = false;
   private connectionStatus: KickConnectionStatus = "idle";
+  private botToken: string | null = null;
 
   constructor(private readonly options: KickChatClientOptions) {
     super();
@@ -57,13 +55,8 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
   }
 
   setBotToken(token: string): void {
-    this.cachedToken = {
-      token,
-      expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
-    };
+    this.botToken = token;
   }
-
-  private cachedToken: { token: string; expiresAt: number } | null = null;
 
   async sendScoreMessage(username: string, score: number): Promise<boolean> {
     const message = score === 100
@@ -72,159 +65,71 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
 
     console.log(`[CHAT BILDIRIMI] ${message}`);
 
-    const chatroomId = this.resolvedChatroomId;
-    if (!chatroomId) return false;
-
-    const token = await this.getOrFetchAccessToken();
-
-    const endpoints = [
-      {
-        url: `https://kick.com/api/v2/chatrooms/${chatroomId}/messages`,
-        body: JSON.stringify({ content: message, type: "message" }),
-      },
-      {
-        url: `https://kick.com/api/v2/chatrooms/${chatroomId}/messages`,
-        body: JSON.stringify({ content: message, type: "bot" }),
-      },
-      {
-        url: "https://kick.com/api/v2/messages/send",
-        body: JSON.stringify({ chatroom_id: chatroomId, content: message, type: "message" }),
-      },
-      {
-        url: "https://api.kick.com/public/v1/chat",
-        body: JSON.stringify({ broadcaster_user_id: chatroomId, content: message, type: "user" }),
-      },
-    ];
-
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-      "Referer": `https://kick.com/${encodeURIComponent(this.options.channelSlug)}`,
-      "Origin": "https://kick.com",
-    };
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    const broadcasterId = this.resolvedBroadcasterId;
+    if (!broadcasterId) {
+      console.warn("[KICK CHAT] broadcaster_user_id bilinmiyor, mesaj gönderilemedi.");
+      return false;
     }
 
-    for (const ep of endpoints) {
-      const ok = await this.tryPostFetch(ep.url, headers, ep.body);
-      if (ok) return true;
-    }
-
-    for (const ep of endpoints) {
-      const ok = await this.tryPostCurl(ep.url, headers, ep.body);
-      if (ok) return true;
-    }
-
-    return false;
-  }
-
-  private async tryPostFetch(url: string, headers: Record<string, string>, body: string): Promise<boolean> {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body,
-        signal: AbortSignal.timeout(10_000),
-      });
-      const responseText = await response.text();
-      if (response.ok) {
-        console.log(`[KICK CHAT] Mesaj gönderildi: ${url}`);
-        return true;
-      } else {
-        console.warn(`[KICK CHAT FETCH HATA ${response.status}] ${url} -> ${responseText.slice(0, 300)}`);
-      }
-    } catch (err: any) {
-      console.warn(`[KICK CHAT FETCH EXCEPTION] ${url} -> ${err.message}`);
-    }
-    return false;
-  }
-
-  private async tryPostCurl(url: string, headers: Record<string, string>, body: string): Promise<boolean> {
-    try {
-      const executable = process.platform === "win32" ? "curl.exe" : "curl";
-      const headerArgs: string[] = [];
-      for (const [key, value] of Object.entries(headers)) {
-        headerArgs.push("-H", `${key}: ${value}`);
-      }
-      const { stdout } = await execFileAsync(
-        executable,
-        [
-          "-X", "POST",
-          "-L",
-          "--silent",
-          "--show-error",
-          "--max-time", "10",
-          ...headerArgs,
-          "-d", body,
-          url,
-        ],
-        { maxBuffer: 1024 * 1024 },
-      );
-      console.log(`[KICK CHAT cURL YANIT] ${url} -> ${stdout.slice(0, 300)}`);
-      if (stdout.includes('"status":') || stdout.includes('"message":') || stdout.includes('"id":') || stdout.includes('"content":')) {
-        return true;
-      }
-    } catch (err: any) {
-      console.warn(`[KICK CHAT cURL EXCEPTION] ${url} -> ${err.message}`);
-    }
-    return false;
-  }
-
-  private async getOrFetchAccessToken(): Promise<string | null> {
-    if (process.env.KICK_BOT_TOKEN?.trim()) {
-      return process.env.KICK_BOT_TOKEN.trim();
-    }
-
-    const clientId = process.env.KICK_CLIENT_ID?.trim();
-    const clientSecret = process.env.KICK_CLIENT_SECRET?.trim();
-    if (!clientId || !clientSecret) return null;
-
-    if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
-      return this.cachedToken.token;
+    const token = this.getAccessToken();
+    if (!token) {
+      console.warn("[KICK CHAT] Bot token yok, mesaj gönderilemedi. /auth/kick üzerinden yetkilendirme yapın.");
+      return false;
     }
 
     try {
-      const params = new URLSearchParams();
-      params.append("grant_type", "client_credentials");
-      params.append("client_id", clientId);
-      params.append("client_secret", clientSecret);
-      params.append("scope", "chat:write");
-
-      const response = await fetch("https://id.kick.com/oauth/token", {
+      const response = await fetch("https://api.kick.com/public/v1/chat", {
         method: "POST",
         headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": `Bearer ${token}`,
         },
-        body: params.toString(),
+        body: JSON.stringify({
+          broadcaster_user_id: broadcasterId,
+          content: message,
+          type: "user",
+        }),
+        signal: AbortSignal.timeout(10_000),
       });
 
-      if (!response.ok) return null;
-      const data = (await response.json()) as { access_token?: string; expires_in?: number };
-      if (data.access_token) {
-        const expiresInMs = (data.expires_in ?? 3600) * 1000 - 60000;
-        this.cachedToken = {
-          token: data.access_token,
-          expiresAt: Date.now() + expiresInMs,
-        };
-        return data.access_token;
+      const responseText = await response.text();
+      if (response.ok) {
+        console.log("[KICK CHAT] Mesaj başarıyla gönderildi.");
+        return true;
       }
-    } catch (error) {
-      console.warn("[KICK OAUTH] Client Credentials token otomatik alınamadı:", error);
+      console.warn(`[KICK CHAT HATA ${response.status}] ${responseText.slice(0, 300)}`);
+    } catch (err: any) {
+      console.warn(`[KICK CHAT EXCEPTION] ${err.message}`);
     }
-    return null;
+    return false;
+  }
+
+  private getAccessToken(): string | null {
+    if (this.botToken) return this.botToken;
+    const envToken = process.env.KICK_BOT_TOKEN?.trim();
+    return envToken || null;
   }
 
   async start(): Promise<void> {
     if (this.connectionStatus !== "idle" && this.connectionStatus !== "stopped") return;
     this.stopping = false;
     this.connectionStatus = "connecting";
-    this.resolvedChatroomId ??= await this.channelResolver.resolveChatroomId(
-      this.options.channelSlug,
-    );
+
+    if (!this.resolvedChatroomId) {
+      const resolved = await this.channelResolver.resolveChannel(this.options.channelSlug);
+      this.resolvedChatroomId = resolved.chatroomId;
+      this.resolvedBroadcasterId = resolved.broadcasterId;
+    } else if (!this.resolvedBroadcasterId) {
+      try {
+        const resolved = await this.channelResolver.resolveChannel(this.options.channelSlug);
+        this.resolvedBroadcasterId = resolved.broadcasterId;
+      } catch {
+        // chatroom ID elle girilmişse broadcaster ID bulunamazsa devam et
+        this.resolvedBroadcasterId = this.resolvedChatroomId;
+      }
+    }
+
     this.openSocket();
   }
 

@@ -132,8 +132,23 @@ export class GameServer {
         return;
       }
 
-      const session = state ? this.pkceSessions.get(state) : null;
-      const codeVerifier = session?.codeVerifier || "";
+      // CSRF koruması: state parametresi zorunlu ve eşleşmeli
+      if (!state || !this.pkceSessions.has(state)) {
+        response.status(403).send("Geçersiz veya süresi dolmuş oturum (state). Lütfen /auth/kick üzerinden tekrar deneyin.");
+        return;
+      }
+
+      const session = this.pkceSessions.get(state)!;
+      this.pkceSessions.delete(state);
+
+      // Süresi dolmuş oturumu reddet
+      if (Date.now() > session.expiresAt) {
+        response.status(403).send("Oturum süresi doldu. Lütfen /auth/kick üzerinden tekrar deneyin.");
+        return;
+      }
+
+      // Arka planda süresi dolmuş tüm oturumları temizle
+      this.cleanExpiredPkceSessions();
 
       try {
         const baseUrl = this.getPublicBaseUrl(request);
@@ -144,9 +159,7 @@ export class GameServer {
         params.append("client_secret", this.config.clientSecret);
         params.append("redirect_uri", redirectUri);
         params.append("code", code);
-        if (codeVerifier) {
-          params.append("code_verifier", codeVerifier);
-        }
+        params.append("code_verifier", session.codeVerifier);
 
         const res = await fetch("https://id.kick.com/oauth/token", {
           method: "POST",
@@ -171,10 +184,8 @@ export class GameServer {
           response.send(`
             <div style="font-family:sans-serif; text-align:center; padding: 50px;">
               <h1 style="color:#00e701;">✅ Kick OAuth 2.1 Yetkilendirmesi Başarılı!</h1>
-              <p style="font-size:18px;">Resmi PKCE Bot Token'ınız alındı ve sunucuda aktif edildi.</p>
-              <p style="background:#f0f0f0; padding:15px; border-radius:8px; word-break:break-all; font-family:monospace;">
-                KICK_BOT_TOKEN=${data.access_token}
-              </p>
+              <p style="font-size:18px;">Bot Token'ınız alındı ve sunucuda aktif edildi.</p>
+              <p style="font-size:14px; color:#888;">Bu sayfayı güvenle kapatabilirsiniz.</p>
             </div>
           `);
         } else {
@@ -233,6 +244,13 @@ export class GameServer {
         socketClients: "Socket.io aktif",
       });
     });
+  }
+
+  private cleanExpiredPkceSessions(): void {
+    const now = Date.now();
+    for (const [key, session] of this.pkceSessions) {
+      if (now > session.expiresAt) this.pkceSessions.delete(key);
+    }
   }
 
   private configureKickLogging(): void {
