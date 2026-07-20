@@ -1,0 +1,160 @@
+import { EventEmitter } from "node:events";
+import WebSocket, { type RawData } from "ws";
+import type { ChatMessage } from "../domain/ChatMessage.js";
+import { KickChannelResolver } from "./KickChannelResolver.js";
+import {
+  createSubscribeMessage,
+  parseKickProtocolMessage,
+  PUSHER_PING_MESSAGE,
+  PUSHER_PONG_MESSAGE,
+} from "./KickProtocol.js";
+
+export type KickConnectionStatus =
+  | "idle"
+  | "connecting"
+  | "connected"
+  | "reconnecting"
+  | "stopped";
+
+export interface KickChatClientOptions {
+  channelSlug: string;
+  chatroomId?: number;
+  pusherUrl: string;
+  channelResolver?: KickChannelResolver;
+}
+
+export interface ChatMessageSource {
+  on(event: "message", listener: (message: ChatMessage) => void): this;
+  off(event: "message", listener: (message: ChatMessage) => void): this;
+}
+
+export class KickChatClient extends EventEmitter implements ChatMessageSource {
+  private readonly channelResolver: KickChannelResolver;
+  private resolvedChatroomId?: number;
+  private socket: WebSocket | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectAttempt = 0;
+  private stopping = false;
+  private connectionStatus: KickConnectionStatus = "idle";
+
+  constructor(private readonly options: KickChatClientOptions) {
+    super();
+    this.resolvedChatroomId = options.chatroomId;
+    this.channelResolver = options.channelResolver ?? new KickChannelResolver();
+  }
+
+  get status(): KickConnectionStatus {
+    return this.connectionStatus;
+  }
+
+  get chatroomId(): number | undefined {
+    return this.resolvedChatroomId;
+  }
+
+  async start(): Promise<void> {
+    if (this.connectionStatus !== "idle" && this.connectionStatus !== "stopped") return;
+    this.stopping = false;
+    this.connectionStatus = "connecting";
+    this.resolvedChatroomId ??= await this.channelResolver.resolveChatroomId(
+      this.options.channelSlug,
+    );
+    this.openSocket();
+  }
+
+  stop(): void {
+    this.stopping = true;
+    this.connectionStatus = "stopped";
+    this.clearTimers();
+    const activeSocket = this.socket;
+    this.socket = null;
+    if (activeSocket) {
+      activeSocket.removeAllListeners();
+      // ws, bağlantı kurulurken terminate edilirse asenkron bir error olayı üretir.
+      activeSocket.on("error", () => undefined);
+      if (activeSocket.readyState === WebSocket.OPEN) {
+        activeSocket.close(1000, "server shutdown");
+      } else if (activeSocket.readyState !== WebSocket.CLOSED) {
+        activeSocket.terminate();
+      }
+    }
+  }
+
+  private openSocket(): void {
+    if (this.stopping || !this.resolvedChatroomId) return;
+
+    const url = new URL(this.options.pusherUrl);
+    url.searchParams.set("protocol", "7");
+    url.searchParams.set("client", "js");
+    url.searchParams.set("version", "8.4.0");
+    url.searchParams.set("flash", "false");
+
+    this.socket = new WebSocket(url);
+    this.socket.on("open", () => {
+      this.socket?.send(createSubscribeMessage(this.resolvedChatroomId!));
+      this.startHeartbeat();
+    });
+    this.socket.on("message", (data: RawData) => this.handleMessage(data.toString()));
+    this.socket.on("error", (error) => this.emit("clientError", error));
+    this.socket.on("close", (code, reason) => {
+      this.clearHeartbeat();
+      this.socket = null;
+      this.emit("disconnected", { code, reason: reason.toString() });
+      if (!this.stopping) this.scheduleReconnect();
+    });
+  }
+
+  private handleMessage(rawMessage: string): void {
+    const event = parseKickProtocolMessage(rawMessage);
+    if (!event) return;
+
+    if (event.type === "ping") {
+      if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(PUSHER_PONG_MESSAGE);
+      return;
+    }
+    if (event.type === "subscribed") {
+      this.connectionStatus = "connected";
+      this.reconnectAttempt = 0;
+      this.emit("ready", {
+        channelSlug: this.options.channelSlug,
+        chatroomId: this.resolvedChatroomId,
+      });
+      return;
+    }
+    if (event.type === "chat") this.emit("message", event.message);
+    if (event.type === "other" && event.eventName === "pusher:error") {
+      this.emit("clientError", new Error("Pusher aboneliği hata döndürdü."));
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer || this.stopping) return;
+    this.connectionStatus = "reconnecting";
+    this.reconnectAttempt += 1;
+    const backoff = Math.min(1_000 * 2 ** (this.reconnectAttempt - 1), 30_000);
+    const delay = backoff + Math.floor(Math.random() * 250);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.openSocket();
+    }, delay);
+  }
+
+  private startHeartbeat(): void {
+    this.clearHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.socket?.readyState === WebSocket.OPEN) this.socket.send(PUSHER_PING_MESSAGE);
+    }, 30_000);
+    this.heartbeatTimer.unref();
+  }
+
+  private clearHeartbeat(): void {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  private clearTimers(): void {
+    this.clearHeartbeat();
+    if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+}
