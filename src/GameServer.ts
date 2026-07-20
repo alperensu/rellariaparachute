@@ -92,6 +92,65 @@ export class GameServer {
       }),
     );
 
+    this.app.get("/auth/kick", (_request, response) => {
+      const redirectUri = encodeURIComponent(`${this.config.publicBaseUrl}/auth/kick/callback`);
+      const clientId = encodeURIComponent(this.config.clientId);
+      const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=chat:write`;
+      response.redirect(authUrl);
+    });
+
+    this.app.get("/auth/kick/callback", async (request, response) => {
+      const code = request.query.code;
+      if (typeof code !== "string" || !code) {
+        response.status(400).send("Giriş kodu (code) alınamadı.");
+        return;
+      }
+      try {
+        const redirectUri = `${this.config.publicBaseUrl}/auth/kick/callback`;
+        const params = new URLSearchParams();
+        params.append("grant_type", "authorization_code");
+        params.append("client_id", this.config.clientId);
+        params.append("client_secret", this.config.clientSecret);
+        params.append("redirect_uri", redirectUri);
+        params.append("code", code);
+
+        const res = await fetch("https://id.kick.com/oauth/token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          },
+          body: params.toString(),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          response.status(400).send(`Token alınamadı (${res.status}): ${errText}`);
+          return;
+        }
+
+        const data = (await res.json()) as { access_token?: string };
+        if (data.access_token) {
+          process.env.KICK_BOT_TOKEN = data.access_token;
+          this.kickChat.setBotToken(data.access_token);
+          console.log("[KICK OAUTH] Resmi Bot Access Token başarıyla alındı ve aktif edildi!");
+          response.send(`
+            <div style="font-family:sans-serif; text-align:center; padding: 50px;">
+              <h1 style="color:#00e701;">✅ Kick Yetkilendirmesi Başarılı!</h1>
+              <p style="font-size:18px;">Resmi Bot Token'ınız alındı. Artık sohbet odasına mesaj gönderilebilir!</p>
+              <p style="background:#f0f0f0; padding:15px; border-radius:8px; word-break:break-all; font-family:monospace;">
+                KICK_BOT_TOKEN=${data.access_token}
+              </p>
+            </div>
+          `);
+        } else {
+          response.status(400).send("Access token yanıt içerisinde bulunamadı.");
+        }
+      } catch (err: any) {
+        response.status(500).send(`Token hatası: ${err.message}`);
+      }
+    });
+
     this.app.get("/api/reload", (_request, response) => {
       this.realtime.broadcastReload();
       response.json({

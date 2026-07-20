@@ -56,6 +56,13 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     return this.resolvedChatroomId;
   }
 
+  setBotToken(token: string): void {
+    this.cachedToken = {
+      token,
+      expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
+    };
+  }
+
   private cachedToken: { token: string; expiresAt: number } | null = null;
 
   async sendScoreMessage(username: string, score: number): Promise<boolean> {

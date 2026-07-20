@@ -24,6 +24,9 @@ export class AppConfig {
     public readonly chatroomId: number | undefined,
     public readonly pusherUrl: string,
     public readonly clientOrigin: string,
+    public readonly clientId: string,
+    public readonly clientSecret: string,
+    public readonly publicBaseUrl: string,
   ) {}
 
   static fromEnvironment(environment: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -37,12 +40,19 @@ export class AppConfig {
       throw new Error("KICK_PUSHER_URL güvenli bir wss:// adresi olmalıdır.");
     }
 
+    const clientId = environment.KICK_CLIENT_ID?.trim() || "";
+    const clientSecret = environment.KICK_CLIENT_SECRET?.trim() || "";
+    const publicBaseUrl = (environment.PUBLIC_BASE_URL?.trim() || `http://localhost:${parsePort(environment.PORT)}`).replace(/\/+$/, "");
+
     return new AppConfig(
       parsePort(environment.PORT),
       channelSlug,
       parseChatroomId(environment.KICK_CHATROOM_ID),
       pusherUrl,
       environment.CLIENT_ORIGIN?.trim() || "*",
+      clientId,
+      clientSecret,
+      publicBaseUrl,
     );
   }
 }
