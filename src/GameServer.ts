@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { createServer, type Server as HttpServer } from "node:http";
 import { resolve } from "node:path";
 import express, { type Express } from "express";
@@ -8,6 +9,11 @@ import { KickChatClient } from "./kick/KickChatClient.js";
 import { KickEmoteProxy } from "./kick/KickEmoteProxy.js";
 import { RealtimeGateway } from "./realtime/RealtimeGateway.js";
 
+interface PkceSession {
+  codeVerifier: string;
+  expiresAt: number;
+}
+
 export class GameServer {
   private readonly app: Express;
   private readonly httpServer: HttpServer;
@@ -16,6 +22,7 @@ export class GameServer {
   private readonly gameEvents: GameEventManager;
   private readonly commandHandler: DropCommandHandler;
   private readonly emoteProxy = new KickEmoteProxy();
+  private readonly pkceSessions = new Map<string, PkceSession>();
   private started = false;
 
   constructor(private readonly config: AppConfig) {
@@ -72,18 +79,33 @@ export class GameServer {
     this.app.disable("x-powered-by");
 
     this.app.get("/auth/kick", (_request, response) => {
+      const state = randomBytes(16).toString("hex");
+      const codeVerifier = randomBytes(32).toString("base64url");
+      const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url");
+
+      this.pkceSessions.set(state, {
+        codeVerifier,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+
       const redirectUri = encodeURIComponent(`${this.config.publicBaseUrl}/auth/kick/callback`);
       const clientId = encodeURIComponent(this.config.clientId);
-      const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=chat:write`;
+      const authUrl = `https://id.kick.com/oauth/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&scope=chat:write&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${state}`;
       response.redirect(authUrl);
     });
 
     this.app.get("/auth/kick/callback", async (request, response) => {
       const code = request.query.code;
+      const state = request.query.state as string;
+
       if (typeof code !== "string" || !code) {
         response.status(400).send("Giriş kodu (code) alınamadı.");
         return;
       }
+
+      const session = state ? this.pkceSessions.get(state) : null;
+      const codeVerifier = session?.codeVerifier || "";
+
       try {
         const redirectUri = `${this.config.publicBaseUrl}/auth/kick/callback`;
         const params = new URLSearchParams();
@@ -92,6 +114,9 @@ export class GameServer {
         params.append("client_secret", this.config.clientSecret);
         params.append("redirect_uri", redirectUri);
         params.append("code", code);
+        if (codeVerifier) {
+          params.append("code_verifier", codeVerifier);
+        }
 
         const res = await fetch("https://id.kick.com/oauth/token", {
           method: "POST",
@@ -112,11 +137,11 @@ export class GameServer {
         if (data.access_token) {
           process.env.KICK_BOT_TOKEN = data.access_token;
           this.kickChat.setBotToken(data.access_token);
-          console.log("[KICK OAUTH] Resmi Bot Access Token başarıyla alındı ve aktif edildi!");
+          console.log("[KICK OAUTH 2.1 PKCE] Resmi Access Token başarıyla alındı!");
           response.send(`
             <div style="font-family:sans-serif; text-align:center; padding: 50px;">
-              <h1 style="color:#00e701;">✅ Kick Yetkilendirmesi Başarılı!</h1>
-              <p style="font-size:18px;">Resmi Bot Token'ınız alındı. Artık sohbet odasına mesaj gönderilebilir!</p>
+              <h1 style="color:#00e701;">✅ Kick OAuth 2.1 Yetkilendirmesi Başarılı!</h1>
+              <p style="font-size:18px;">Resmi PKCE Bot Token'ınız alındı ve sunucuda aktif edildi.</p>
               <p style="background:#f0f0f0; padding:15px; border-radius:8px; word-break:break-all; font-family:monospace;">
                 KICK_BOT_TOKEN=${data.access_token}
               </p>
