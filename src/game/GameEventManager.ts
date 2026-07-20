@@ -93,7 +93,7 @@ export class GameEventManager implements DropEventEmitter {
   }
 
   private calculateScore(landingX: number, targetX: number): number {
-    const targetRadius = 0.07;
+    const targetRadius = 0.056;
     const distance = Math.abs(landingX - targetX);
     if (distance > targetRadius) return 0;
     if (distance === 0) return 100;

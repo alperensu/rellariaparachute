@@ -1,7 +1,8 @@
 /* global Phaser, io */
 
-const BOWL_SCALE = 0.72;
+const BOWL_SCALE = 0.58;
 const PLAYER_SCALE = 0.76;
+const PARACHUTE_UI_SCALE = 0.82;
 const BOWL_LANDING_Y = 944;
 const GROUND_LANDING_Y = 1_018;
 
@@ -112,11 +113,11 @@ class PinkLandingBowl {
   }
 
   contains(worldX) {
-    return Math.abs(worldX - this.x) <= 135;
+    return Math.abs(worldX - this.x) <= 108;
   }
 
   splash(worldX) {
-    const localX = Phaser.Math.Clamp(worldX - this.x, -125, 125);
+    const localX = Phaser.Math.Clamp(worldX - this.x, -100, 100);
     for (let index = 0; index < 14; index += 1) {
       const droplet = this.scene.add.circle(
         this.x + localX,
@@ -229,8 +230,9 @@ class ParachutePlayer {
     this.parachute.lineBetween(38, -10, 18, 14);
     this.parachute.lineStyle(4, 0xff70bc, 1);
     this.parachute.strokeRoundedRect(-25, 7, 50, 12, 6);
+    this.parachute.setScale(PARACHUTE_UI_SCALE);
 
-    this.landingShadow = this.scene.add.ellipse(0, 77, 76, 14, 0x26091e, 0.42)
+    this.landingShadow = this.scene.add.ellipse(0, 77, 62, 11, 0x26091e, 0.38)
       .setVisible(false);
 
     this.character = this.scene.add.text(0, 43, this.player.emoji || "🙂", {
@@ -240,26 +242,26 @@ class ParachutePlayer {
 
     this.nameBackground = this.scene.add.graphics();
     this.nameBackground.fillStyle(0x3d0d31, 0.88);
-    this.nameBackground.fillRoundedRect(-82, 82, 164, 34, 17);
+    this.nameBackground.fillRoundedRect(-68, 90, 136, 28, 14);
     this.nameBackground.lineStyle(2, 0xff83ca, 0.95);
-    this.nameBackground.strokeRoundedRect(-82, 82, 164, 34, 17);
-    this.username = this.scene.add.text(0, 99, this.player.username, {
+    this.nameBackground.strokeRoundedRect(-68, 90, 136, 28, 14);
+    this.username = this.scene.add.text(0, 104, this.player.username, {
       fontFamily: "Arial Black, Arial",
-      fontSize: "16px",
+      fontSize: "14px",
       color: "#ffffff",
       stroke: "#3d0d31",
-      strokeThickness: 3,
+      strokeThickness: 2,
     }).setOrigin(0.5);
-    this.username.setDisplaySize(Math.min(this.username.width, 145), this.username.height);
+    this.username.setDisplaySize(Math.min(this.username.width, 118), this.username.height);
 
     const scoreBackground = this.scene.add.graphics();
     scoreBackground.fillStyle(0xffe2f3, 0.96);
-    scoreBackground.fillRoundedRect(-74, -142, 148, 48, 24);
-    scoreBackground.lineStyle(3, 0xff4fb5, 1);
-    scoreBackground.strokeRoundedRect(-74, -142, 148, 48, 24);
+    scoreBackground.fillRoundedRect(-60, -137, 120, 38, 19);
+    scoreBackground.lineStyle(2, 0xff4fb5, 1);
+    scoreBackground.strokeRoundedRect(-60, -137, 120, 38, 19);
     const scoreText = this.scene.add.text(0, -118, `${this.player.score} PUAN`, {
       fontFamily: "Arial Black, Arial",
-      fontSize: "19px",
+      fontSize: "15px",
       color: "#6f1d59",
     }).setOrigin(0.5);
     this.scoreBadge = this.scene.add.container(0, 0, [scoreBackground, scoreText])
