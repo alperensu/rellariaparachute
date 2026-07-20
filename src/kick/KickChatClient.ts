@@ -1,4 +1,6 @@
+import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
+import { promisify } from "node:util";
 import WebSocket, { type RawData } from "ws";
 import type { ChatMessage } from "../domain/ChatMessage.js";
 import { KickChannelResolver } from "./KickChannelResolver.js";
@@ -8,6 +10,8 @@ import {
   PUSHER_PING_MESSAGE,
   PUSHER_PONG_MESSAGE,
 } from "./KickProtocol.js";
+
+const execFileAsync = promisify(execFile);
 
 export type KickConnectionStatus =
   | "idle"
@@ -65,20 +69,90 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     if (!chatroomId) return false;
 
     const token = await this.getOrFetchAccessToken();
-    if (!token) return false;
 
-    try {
-      const response = await fetch(`https://kick.com/api/v2/chatrooms/${chatroomId}/messages`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`,
-        },
+    const endpoints = [
+      {
+        url: `https://kick.com/api/v2/chatrooms/${chatroomId}/messages`,
         body: JSON.stringify({ content: message, type: "bot" }),
+      },
+      {
+        url: "https://kick.com/api/v2/messages/send",
+        body: JSON.stringify({ chatroom_id: chatroomId, content: message }),
+      },
+      {
+        url: "https://api.kick.com/public/v1/chat",
+        body: JSON.stringify({ chatroom_id: chatroomId, content: message }),
+      },
+    ];
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+      "Referer": `https://kick.com/${encodeURIComponent(this.options.channelSlug)}`,
+      "Origin": "https://kick.com",
+    };
+
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+
+    for (const ep of endpoints) {
+      const ok = await this.tryPostFetch(ep.url, headers, ep.body);
+      if (ok) return true;
+    }
+
+    for (const ep of endpoints) {
+      const ok = await this.tryPostCurl(ep.url, headers, ep.body);
+      if (ok) return true;
+    }
+
+    return false;
+  }
+
+  private async tryPostFetch(url: string, headers: Record<string, string>, body: string): Promise<boolean> {
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers,
+        body,
+        signal: AbortSignal.timeout(10_000),
       });
-      return response.ok;
-    } catch (error) {
-      console.error("[KICK BOT] Chat mesajı gönderilemedi:", error);
+      if (response.ok) {
+        console.log(`[KICK CHAT] Mesaj gönderildi: ${url}`);
+        return true;
+      }
+    } catch {
+      // Ignore fetch errors and try fallback
+    }
+    return false;
+  }
+
+  private async tryPostCurl(url: string, headers: Record<string, string>, body: string): Promise<boolean> {
+    try {
+      const executable = process.platform === "win32" ? "curl.exe" : "curl";
+      const headerArgs: string[] = [];
+      for (const [key, value] of Object.entries(headers)) {
+        headerArgs.push("-H", `${key}: ${value}`);
+      }
+      await execFileAsync(
+        executable,
+        [
+          "-X", "POST",
+          "-L",
+          "--silent",
+          "--show-error",
+          "--fail",
+          "--max-time", "10",
+          ...headerArgs,
+          "-d", body,
+          url,
+        ],
+        { maxBuffer: 1024 * 1024 },
+      );
+      console.log(`[KICK CHAT (cURL)] Mesaj gönderildi: ${url}`);
+      return true;
+    } catch {
       return false;
     }
   }
@@ -107,6 +181,7 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         },
         body: params.toString(),
       });
