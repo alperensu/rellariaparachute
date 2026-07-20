@@ -52,6 +52,8 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     return this.resolvedChatroomId;
   }
 
+  private cachedToken: { token: string; expiresAt: number } | null = null;
+
   async sendScoreMessage(username: string, score: number): Promise<boolean> {
     const message = score === 100
       ? `@${username} TEBRİKLER! Tam 100 PUAN aldınız! 🎯🪂`
@@ -60,15 +62,17 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
     console.log(`[CHAT BILDIRIMI] ${message}`);
 
     const chatroomId = this.resolvedChatroomId;
-    const botToken = process.env.KICK_BOT_TOKEN;
-    if (!chatroomId || !botToken) return false;
+    if (!chatroomId) return false;
+
+    const token = await this.getOrFetchAccessToken();
+    if (!token) return false;
 
     try {
       const response = await fetch(`https://kick.com/api/v2/chatrooms/${chatroomId}/messages`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${botToken}`,
+          "Authorization": `Bearer ${token}`,
         },
         body: JSON.stringify({ content: message, type: "bot" }),
       });
@@ -77,6 +81,50 @@ export class KickChatClient extends EventEmitter implements ChatMessageSource {
       console.error("[KICK BOT] Chat mesajı gönderilemedi:", error);
       return false;
     }
+  }
+
+  private async getOrFetchAccessToken(): Promise<string | null> {
+    if (process.env.KICK_BOT_TOKEN?.trim()) {
+      return process.env.KICK_BOT_TOKEN.trim();
+    }
+
+    const clientId = process.env.KICK_CLIENT_ID?.trim();
+    const clientSecret = process.env.KICK_CLIENT_SECRET?.trim();
+    if (!clientId || !clientSecret) return null;
+
+    if (this.cachedToken && Date.now() < this.cachedToken.expiresAt) {
+      return this.cachedToken.token;
+    }
+
+    try {
+      const params = new URLSearchParams();
+      params.append("grant_type", "client_credentials");
+      params.append("client_id", clientId);
+      params.append("client_secret", clientSecret);
+      params.append("scope", "chat:write");
+
+      const response = await fetch("https://id.kick.com/oauth/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: params.toString(),
+      });
+
+      if (!response.ok) return null;
+      const data = (await response.json()) as { access_token?: string; expires_in?: number };
+      if (data.access_token) {
+        const expiresInMs = (data.expires_in ?? 3600) * 1000 - 60000;
+        this.cachedToken = {
+          token: data.access_token,
+          expiresAt: Date.now() + expiresInMs,
+        };
+        return data.access_token;
+      }
+    } catch (error) {
+      console.warn("[KICK OAUTH] Client Credentials token otomatik alınamadı:", error);
+    }
+    return null;
   }
 
   async start(): Promise<void> {
