@@ -70,27 +70,6 @@ export class GameServer {
 
   private configureHttpRoutes(): void {
     this.app.disable("x-powered-by");
-    this.app.get("/api/kick-emotes/:id", (request, response) => {
-      void this.emoteProxy.handle(request, response);
-    });
-    this.app.use(
-      "/vendor/phaser",
-      express.static(resolve(process.cwd(), "node_modules/phaser/dist"), {
-        immutable: true,
-        maxAge: "1d",
-      }),
-    );
-    this.app.use(
-      express.static(resolve(process.cwd(), "public"), {
-        etag: false,
-        maxAge: 0,
-        setHeaders: (res) => {
-          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-          res.setHeader("Pragma", "no-cache");
-          res.setHeader("Expires", "0");
-        },
-      }),
-    );
 
     this.app.get("/auth/kick", (_request, response) => {
       const redirectUri = encodeURIComponent(`${this.config.publicBaseUrl}/auth/kick/callback`);
@@ -150,6 +129,28 @@ export class GameServer {
         response.status(500).send(`Token hatası: ${err.message}`);
       }
     });
+
+    this.app.get("/api/kick-emotes/:id", (request, response) => {
+      void this.emoteProxy.handle(request, response);
+    });
+    this.app.use(
+      "/vendor/phaser",
+      express.static(resolve(process.cwd(), "node_modules/phaser/dist"), {
+        immutable: true,
+        maxAge: "1d",
+      }),
+    );
+    this.app.use(
+      express.static(resolve(process.cwd(), "public"), {
+        etag: false,
+        maxAge: 0,
+        setHeaders: (res) => {
+          res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+          res.setHeader("Pragma", "no-cache");
+          res.setHeader("Expires", "0");
+        },
+      }),
+    );
 
     this.app.get("/api/reload", (_request, response) => {
       this.realtime.broadcastReload();
