@@ -50,7 +50,7 @@ class PinkLandingBowl {
   constructor(scene, x) {
     this.scene = scene;
     this.x = x;
-    this.y = 1_015;
+    this.y = 1_045;
     this.container = scene.add.container(x, this.y).setDepth(4).setScale(0).setAlpha(0);
     this.bubbles = [];
     this.bubbleTimer = 0;
@@ -618,7 +618,7 @@ class ParachuteScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.svg("landing_bowl_svg", "/bowl.svg", { width: 600, height: 340 });
+    this.load.svg("landing_bowl_svg", "/bowl.svg", { width: 600, height: 420 });
   }
 
   create() {

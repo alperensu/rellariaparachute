@@ -1,11 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 340" width="600" height="340">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 420" width="600" height="420">
   <defs>
-    <!-- Soft Drop Shadow -->
-    <filter id="shadowBlur" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur in="SourceAlpha" stdDeviation="12"/>
-      <feOffset dx="0" dy="14" result="offsetblur"/>
+    <!-- Soft Ambient Ground Shadow -->
+    <filter id="shadowBlur" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="16"/>
+      <feOffset dx="0" dy="16" result="offsetblur"/>
       <feComponentTransfer>
-        <feFuncA type="linear" slope="0.45"/>
+        <feFuncA type="linear" slope="0.55"/>
       </feComponentTransfer>
       <feMerge> 
         <feMergeNode/>
@@ -13,82 +13,96 @@
       </feMerge>
     </filter>
 
-    <!-- Outer Neon Glow -->
-    <filter id="neonGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="15" result="blur" />
+    <!-- Intense Neon Backlight Glow -->
+    <filter id="neonGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="22" result="blur" />
       <feMerge>
         <feMergeNode in="blur" />
         <feMergeNode in="SourceGraphic" />
       </feMerge>
     </filter>
 
-    <!-- Liquid Main Gradient -->
+    <!-- Rich Magic Liquid Gradient -->
     <linearGradient id="liquidGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#ff2eab" stop-opacity="1"/>
-      <stop offset="60%" stop-color="#d90077" stop-opacity="0.98"/>
-      <stop offset="100%" stop-color="#6e003c" stop-opacity="0.95"/>
+      <stop offset="0%" stop-color="#ff33b4" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#e6007e" stop-opacity="0.98"/>
+      <stop offset="85%" stop-color="#800045" stop-opacity="0.96"/>
+      <stop offset="100%" stop-color="#470026" stop-opacity="0.95"/>
     </linearGradient>
 
-    <!-- Liquid Surface Radial Highlight -->
-    <radialGradient id="liquidSurfaceGlow" cx="42%" cy="38%" r="55%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.75"/>
-      <stop offset="35%" stop-color="#ffb3e6" stop-opacity="0.6"/>
-      <stop offset="70%" stop-color="#ff1a9e" stop-opacity="0.3"/>
+    <!-- Liquid Top Surface Radial Highlight -->
+    <radialGradient id="liquidSurfaceGlow" cx="45%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.85"/>
+      <stop offset="30%" stop-color="#ffc2eb" stop-opacity="0.65"/>
+      <stop offset="65%" stop-color="#ff1a9e" stop-opacity="0.35"/>
       <stop offset="100%" stop-color="#ff1a9e" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Glass Body Translucent Gradient -->
+    <!-- Crystal Glass Body Gradient -->
     <linearGradient id="glassBodyGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.35"/>
-      <stop offset="30%" stop-color="#ffaae5" stop-opacity="0.12"/>
-      <stop offset="70%" stop-color="#ff33b4" stop-opacity="0.18"/>
-      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.4"/>
+      <stop offset="25%" stop-color="#ffaae5" stop-opacity="0.15"/>
+      <stop offset="65%" stop-color="#ff33b4" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.35"/>
     </linearGradient>
 
-    <!-- Rim Glowing Border -->
+    <!-- Glowing Crystal Rim Gradient -->
     <linearGradient id="rimStrokeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="30%" stop-color="#ffb8e8" stop-opacity="1"/>
-      <stop offset="70%" stop-color="#ff66cc" stop-opacity="1"/>
+      <stop offset="20%" stop-color="#ffb8e8" stop-opacity="1"/>
+      <stop offset="50%" stop-color="#ff33b4" stop-opacity="1"/>
+      <stop offset="80%" stop-color="#ffb8e8" stop-opacity="1"/>
       <stop offset="100%" stop-color="#ffffff" stop-opacity="0.95"/>
     </linearGradient>
   </defs>
 
-  <!-- Ground Shadow -->
-  <ellipse cx="300" cy="275" rx="220" ry="32" fill="#290520" opacity="0.55" filter="url(#shadowBlur)" />
+  <!-- Deep Ground Shadow -->
+  <ellipse cx="300" cy="355" rx="220" ry="36" fill="#1f0218" opacity="0.65" filter="url(#shadowBlur)" />
 
-  <!-- Outer Neon Aura -->
-  <ellipse cx="300" cy="190" rx="240" ry="105" fill="#ff1a9e" opacity="0.22" filter="url(#neonGlow)" />
+  <!-- Outer Neon Magenta Backdrop Aura -->
+  <path d="M 100 140 C 100 370, 500 370, 500 140 Z" fill="#ff1a9e" opacity="0.22" filter="url(#neonGlow)" />
 
-  <!-- Glass Bowl Back Fill -->
-  <ellipse cx="300" cy="180" rx="225" ry="100" fill="url(#glassBodyGrad)" stroke="url(#rimStrokeGrad)" stroke-width="4" opacity="0.95" />
+  <!-- Deep Crystal Glass Chalice Outer Shell -->
+  <path d="M 85 140 C 85 365, 515 365, 515 140 C 440 160, 160 160, 85 140 Z" fill="url(#glassBodyGrad)" stroke="url(#rimStrokeGrad)" stroke-width="4.5" opacity="0.96" />
 
-  <!-- Liquid Base Depth -->
-  <ellipse cx="300" cy="148" rx="205" ry="54" fill="#5c0032" opacity="0.95" />
+  <!-- Liquid Deep Interior Backing -->
+  <path d="M 95 140 C 95 348, 505 348, 505 140 C 430 162, 170 162, 95 140 Z" fill="#4d0029" opacity="0.95" />
 
-  <!-- Liquid Main Volume -->
-  <ellipse cx="300" cy="154" rx="198" ry="48" fill="url(#liquidGrad)" />
+  <!-- Liquid Main Volume Fill -->
+  <path d="M 98 140 C 98 340, 502 340, 502 140 C 420 160, 180 160, 98 140 Z" fill="url(#liquidGrad)" />
 
-  <!-- Liquid Surface Radial Glow Reflection -->
-  <ellipse cx="270" cy="145" rx="140" ry="26" fill="url(#liquidSurfaceGlow)" />
+  <!-- Liquid Top Surface Ellipse -->
+  <ellipse cx="300" cy="140" rx="202" ry="46" fill="url(#liquidGrad)" />
 
-  <!-- Liquid Surface Rim Stroke -->
-  <ellipse cx="300" cy="150" rx="200" ry="50" fill="none" stroke="#ffaae5" stroke-width="2.5" opacity="0.75" />
+  <!-- Liquid Surface Radial Glow Highlight -->
+  <ellipse cx="268" cy="135" rx="150" ry="26" fill="url(#liquidSurfaceGlow)" />
 
-  <!-- Glass Front Highlights & Refractions -->
-  <!-- Main Curved Left Highlight -->
-  <path d="M 120 180 A 190 85 0 0 0 210 260" fill="none" stroke="#ffffff" stroke-width="6" stroke-linecap="round" opacity="0.65" />
-  <path d="M 105 165 A 200 90 0 0 0 170 245" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.4" />
+  <!-- Liquid Surface Rim Inner Stroke -->
+  <ellipse cx="300" cy="140" rx="202" ry="46" fill="none" stroke="#ffaae5" stroke-width="2.5" opacity="0.8" />
 
-  <!-- Bottom Right Subtle Highlight -->
-  <path d="M 410 230 A 190 85 0 0 0 470 180" fill="none" stroke="#ffaae5" stroke-width="4" stroke-linecap="round" opacity="0.45" />
+  <!-- Glass Front Curvature Specular Refractions -->
+  <!-- Left Main Curved Highlight -->
+  <path d="M 125 170 C 145 280, 230 335, 290 345" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity="0.65" />
+  <path d="M 110 155 C 130 260, 205 315, 260 330" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.4" />
 
-  <!-- Glass Bowl Top Rim Outer Highlight -->
-  <ellipse cx="300" cy="115" rx="222" ry="42" fill="none" stroke="url(#rimStrokeGrad)" stroke-width="8" />
-  <ellipse cx="300" cy="113" rx="218" ry="38" fill="none" stroke="#ffffff" stroke-width="3.5" opacity="0.9" />
+  <!-- Right Side Curvature Refraction -->
+  <path d="M 475 170 C 455 270, 390 325, 340 338" fill="none" stroke="#ffaae5" stroke-width="4" stroke-linecap="round" opacity="0.45" />
 
-  <!-- Sparkles on Rim -->
-  <circle cx="150" cy="115" r="4" fill="#ffffff" opacity="0.9" />
-  <circle cx="450" cy="115" r="3.5" fill="#ffffff" opacity="0.85" />
-  <polygon points="300,95 304,103 312,107 304,111 300,119 296,111 288,107 296,103" fill="#ffffff" opacity="0.95" />
+  <!-- Glass Top Rim Outer Glowing Ring -->
+  <ellipse cx="300" cy="138" rx="215" ry="48" fill="none" stroke="url(#rimStrokeGrad)" stroke-width="9" />
+  <ellipse cx="300" cy="135" rx="211" ry="44" fill="none" stroke="#ffffff" stroke-width="3.5" opacity="0.92" />
+
+  <!-- Side Decorative Crystal Handles / Accent Gems -->
+  <!-- Left Gem Handle -->
+  <path d="M 72 135 C 45 135, 45 180, 80 195 C 60 175, 65 150, 72 135 Z" fill="url(#rimStrokeGrad)" stroke="#ffffff" stroke-width="2" opacity="0.9" />
+  <circle cx="60" cy="160" r="5" fill="#ffffff" opacity="0.9" />
+
+  <!-- Right Gem Handle -->
+  <path d="M 528 135 C 555 135, 555 180, 520 195 C 540 175, 535 150, 528 135 Z" fill="url(#rimStrokeGrad)" stroke="#ffffff" stroke-width="2" opacity="0.9" />
+  <circle cx="540" cy="160" r="5" fill="#ffffff" opacity="0.9" />
+
+  <!-- Sparkle Stars on Rim -->
+  <polygon points="300,115 304,123 312,127 304,131 300,139 296,131 288,127 296,123" fill="#ffffff" opacity="0.95" />
+  <circle cx="145" cy="138" r="4.5" fill="#ffffff" opacity="0.9" />
+  <circle cx="455" cy="138" r="4" fill="#ffffff" opacity="0.85" />
 </svg>
