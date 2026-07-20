@@ -19,8 +19,8 @@ export class GameEventManager implements DropEventEmitter {
   private static readonly LANDING_SLOT_COUNT = 120;
   private static readonly SPECIAL_USERNAME = "alperensu";
   private static readonly SPECIAL_CLEARANCE = 0.034;
-  private static readonly SPECIAL_TARGET_CHANCE = 0.7;
-  private static readonly SPECIAL_TARGET_SPREAD = 0.045;
+  private static readonly SPECIAL_TARGET_CHANCE = 0.30;
+  private static readonly SPECIAL_TARGET_SPREAD = 0.055;
   private readonly durationMs: number;
   private readonly now: () => number;
   private readonly random: () => number;

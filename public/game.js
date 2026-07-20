@@ -175,8 +175,8 @@ class ParachutePlayer {
     this.scene = scene;
     this.player = player;
     this.bowl = bowl;
-    this.startX = player.spawnX * 1_920;
-    this.landingX = player.landingX * 1_920;
+    this.startX = player.spawnX * WORLD_WIDTH;
+    this.landingX = player.landingX * WORLD_WIDTH;
     this.displayScale = displayScale;
     this.isLanded = false;
     this.isAirborne = true;
@@ -184,6 +184,8 @@ class ParachutePlayer {
     this.velocityX = Number.isFinite(player.launchVelocityX)
       ? player.launchVelocityX * WORLD_WIDTH
       : (Math.random() < 0.5 ? -1 : 1) * (125 + Math.random() * 145);
+    this.recoilX = 0;
+    this.tiltAngle = 0;
     this.fallElapsed = 0;
     this.fallDuration = 5_800 + Math.random() * 2_200;
     this.lastCollisionAt = Number.NEGATIVE_INFINITY;
@@ -273,12 +275,12 @@ class ParachutePlayer {
     scoreBackground.fillRoundedRect(-60, -137, 120, 38, 19);
     scoreBackground.lineStyle(2, 0xff4fb5, 1);
     scoreBackground.strokeRoundedRect(-60, -137, 120, 38, 19);
-    const scoreText = this.scene.add.text(0, -118, `${this.player.score} PUAN`, {
+    this.scoreText = this.scene.add.text(0, -118, `${this.player.score} PUAN`, {
       fontFamily: "Arial Black, Arial",
       fontSize: "15px",
       color: "#6f1d59",
     }).setOrigin(0.5);
-    this.scoreBadge = this.scene.add.container(0, 0, [scoreBackground, scoreText])
+    this.scoreBadge = this.scene.add.container(0, 0, [scoreBackground, this.scoreText])
       .setVisible(false)
       .setScale(0);
 
@@ -329,8 +331,15 @@ class ParachutePlayer {
     this.fallElapsed += delta;
     const progress = Phaser.Math.Clamp(this.fallElapsed / this.fallDuration, 0, 1);
     const remainingSeconds = Math.max((this.fallDuration - this.fallElapsed) / 1_000, 0.28);
+
+    if (Math.abs(this.recoilX) > 0.1) {
+      this.recoilX *= Math.pow(0.85, deltaSeconds * 60);
+    } else {
+      this.recoilX = 0;
+    }
+
     const desiredVelocity = (this.landingX - this.container.x) / remainingSeconds;
-    const steeringStrength = progress < 0.68 ? 105 : 520;
+    const steeringStrength = progress < 0.68 ? 90 : 320;
     const velocityChange = Phaser.Math.Clamp(
       desiredVelocity - this.velocityX,
       -steeringStrength * deltaSeconds,
@@ -338,88 +347,137 @@ class ParachutePlayer {
     );
 
     this.velocityX += velocityChange;
-    this.container.x += this.velocityX * deltaSeconds;
+    this.container.x += (this.velocityX + this.recoilX) * deltaSeconds;
     if (this.container.x <= AIRBORNE_MIN_X || this.container.x >= AIRBORNE_MAX_X) {
       this.container.x = Phaser.Math.Clamp(this.container.x, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
       this.velocityX *= -0.72;
+      this.recoilX *= -0.5;
     }
 
-    this.container.y = Phaser.Math.Linear(-145, 900, Math.pow(progress, 0.92));
+    const targetLandingY = this.getLandingY();
+    this.container.y = Phaser.Math.Linear(-145, targetLandingY, Math.pow(progress, 0.95));
+
+    if (Math.abs(this.tiltAngle) > 0.1) {
+      this.tiltAngle *= Math.pow(0.88, deltaSeconds * 60);
+    } else {
+      this.tiltAngle = 0;
+    }
+
     const sway = Math.sin(progress * Math.PI * 7) * 2.5;
-    this.container.angle = Phaser.Math.Clamp(this.velocityX / 34, -9, 9) + sway;
+    this.container.angle = Phaser.Math.Clamp(this.velocityX / 34 + this.tiltAngle, -25, 25) + sway;
 
     if (progress >= 1) this.land();
   }
 
   collideWith(other, now) {
     if (!this.isAirborne || !other.isAirborne) return;
-    if (now - this.lastCollisionAt < 140 || now - other.lastCollisionAt < 140) return;
+    if (now - this.lastCollisionAt < 120 || now - other.lastCollisionAt < 120) return;
 
-    const horizontalRadius = 58 * (this.displayScale + other.displayScale);
-    const verticalRadius = 82 * (this.displayScale + other.displayScale);
+    const horizontalRadius = 56 * (this.displayScale + other.displayScale);
+    const verticalRadius = 80 * (this.displayScale + other.displayScale);
     const deltaX = other.container.x - this.container.x;
     const deltaY = other.container.y - this.container.y;
     if (Math.abs(deltaX) >= horizontalRadius || Math.abs(deltaY) >= verticalRadius) return;
 
     const direction = deltaX === 0 ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(deltaX);
     const overlap = horizontalRadius - Math.abs(deltaX);
+
     this.container.x -= direction * overlap * 0.5;
     other.container.x += direction * overlap * 0.5;
 
-    const incomingSpeed = Math.abs(this.velocityX - other.velocityX);
-    const collisionSpeed = Phaser.Math.Clamp(95 + incomingSpeed * 0.68, 115, 330);
-    this.velocityX = -direction * collisionSpeed * (0.82 + Math.random() * 0.28);
-    other.velocityX = direction * collisionSpeed * (0.82 + Math.random() * 0.28);
+    const incomingSpeed = Math.abs((this.velocityX + this.recoilX) - (other.velocityX + other.recoilX));
+    const impulseStrength = Phaser.Math.Clamp(140 + incomingSpeed * 0.75 + overlap * 5, 160, 420);
+
+    this.recoilX = -direction * impulseStrength * 1.15;
+    other.recoilX = direction * impulseStrength * 1.15;
+
+    this.velocityX = -direction * impulseStrength * 0.6;
+    other.velocityX = direction * impulseStrength * 0.6;
+
+    this.tiltAngle = -direction * Math.min(28, impulseStrength * 0.1);
+    other.tiltAngle = direction * Math.min(28, impulseStrength * 0.1);
+
+    const deflection = direction * (impulseStrength * 0.45 + overlap * 2.2);
+    this.landingX = Phaser.Math.Clamp(this.landingX - deflection, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
+    other.landingX = Phaser.Math.Clamp(other.landingX + deflection, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
+
+    const bumpX = (this.container.x + other.container.x) / 2;
+    const bumpY = (this.container.y + other.container.y) / 2;
+    this.createCollisionSpark(bumpX, bumpY);
+
     this.lastCollisionAt = now;
     other.lastCollisionAt = now;
+  }
+
+  createCollisionSpark(x, y) {
+    const ring = this.scene.add.circle(x, y, 12, 0xffe1f3, 0.9).setDepth(15);
+    this.scene.tweens.add({
+      targets: ring,
+      scaleX: 3.5,
+      scaleY: 3.5,
+      alpha: 0,
+      duration: 220,
+      ease: "Quad.out",
+      onComplete: () => ring.destroy(),
+    });
   }
 
   land() {
     if (!this.isAirborne) return;
     this.isAirborne = false;
     this.container.angle = 0;
-    const landedInBowl = this.bowl?.contains(this.landingX) ?? false;
+
+    const finalLandingX = Phaser.Math.Clamp(this.container.x, AIRBORNE_MIN_X, AIRBORNE_MAX_X);
+    this.container.x = finalLandingX;
+    this.container.y = this.getLandingY();
+    this.isLanded = true;
+
+    const landedInBowl = this.bowl?.contains(finalLandingX) ?? false;
     this.landedInBowl = landedInBowl;
-    if (landedInBowl) this.bowl.splash(this.landingX);
+    if (landedInBowl) this.bowl.splash(finalLandingX);
+
+    if (typeof this.player.targetX === "number") {
+      const targetXWorld = this.player.targetX * WORLD_WIDTH;
+      const targetRadius = 0.056 * WORLD_WIDTH;
+      const distance = Math.abs(finalLandingX - targetXWorld);
+      let calculatedScore = 0;
+      if (distance <= targetRadius) {
+        calculatedScore = distance === 0 ? 100 : Math.max(1, Math.round((1 - distance / targetRadius) * 99));
+      }
+      if (this.scoreText) {
+        this.scoreText.setText(`${calculatedScore} PUAN`);
+      }
+    }
+
     this.scene.tweens.add({
       targets: this.container,
-      x: this.landingX,
-      y: this.getLandingY(),
-      duration: 180,
-      ease: "Quad.in",
-      onComplete: () => {
-        this.isLanded = true;
-        this.container.y = this.getLandingY();
-        this.scene.tweens.add({
-          targets: this.container,
-          scaleY: this.displayScale * 0.88,
-          duration: 90,
-          yoyo: true,
-          ease: "Sine.inOut",
-        });
-        this.parachute.setVisible(false);
-        this.landingShadow.setVisible(!landedInBowl);
-        this.scene.tweens.add({
-          targets: this.nameBackground,
-          y: -166,
-          duration: 220,
-          ease: "Quad.out",
-        });
-        this.scene.tweens.add({
-          targets: this.username,
-          y: -67,
-          duration: 220,
-          ease: "Quad.out",
-        });
-        this.scoreBadge.setVisible(true);
-        this.scene.tweens.add({
-          targets: this.scoreBadge,
-          scaleX: 1,
-          scaleY: 1,
-          duration: 330,
-          ease: "Back.out",
-        });
-      },
+      scaleY: this.displayScale * 0.82,
+      scaleX: this.displayScale * 1.12,
+      duration: 95,
+      yoyo: true,
+      ease: "Sine.inOut",
+    });
+    this.parachute.setVisible(false);
+    this.landingShadow.setVisible(!landedInBowl);
+    this.scene.tweens.add({
+      targets: this.nameBackground,
+      y: -166,
+      duration: 220,
+      ease: "Quad.out",
+    });
+    this.scene.tweens.add({
+      targets: this.username,
+      y: -67,
+      duration: 220,
+      ease: "Quad.out",
+    });
+    this.scoreBadge.setVisible(true);
+    this.scene.tweens.add({
+      targets: this.scoreBadge,
+      scaleX: 1,
+      scaleY: 1,
+      duration: 330,
+      ease: "Back.out",
     });
   }
 
