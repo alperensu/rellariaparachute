@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DropEvent } from "../domain/ChatMessage.js";
-import type { GameEventState, PlayerDropEvent } from "../domain/GameEvent.js";
+import type { GameEventState, ObstacleData, PlayerDropEvent } from "../domain/GameEvent.js";
 import type { DropEventEmitter } from "../commands/DropCommandHandler.js";
 
 export interface GameEventOutput {
@@ -17,10 +17,12 @@ export interface GameEventManagerOptions {
 
 export class GameEventManager implements DropEventEmitter {
   private static readonly LANDING_SLOT_COUNT = 120;
-  private static readonly SPECIAL_USERNAME = "alperensu";
   private static readonly SPECIAL_CLEARANCE = 0.034;
-  private static readonly SPECIAL_TARGET_CHANCE = 0.30;
   private static readonly SPECIAL_TARGET_SPREAD = 0.055;
+  private static readonly USER_TARGET_CHANCES: Record<string, number> = {
+    rellaria: 0.40,
+    alperensu: 0.05,
+  };
   private readonly durationMs: number;
   private readonly now: () => number;
   private readonly random: () => number;
@@ -60,6 +62,7 @@ export class GameEventManager implements DropEventEmitter {
       landingX,
       launchVelocityX,
       score,
+      wind: this.activeEvent.wind,
     });
     return true;
   }
@@ -76,12 +79,46 @@ export class GameEventManager implements DropEventEmitter {
   private startEvent(): void {
     if (this.endTimer) clearTimeout(this.endTimer);
     const startedAt = this.now();
+    const windDirection = this.random() < 0.5 ? -1 : 1;
+    const windActive = this.random() < 0.85;
+    const windSpeed = 0.03 + this.random() * 0.04;
+
+    const obstacles: ObstacleData[] = [
+      {
+        id: randomUUID(),
+        type: "zeppelin",
+        yRatio: 0.18 + this.random() * 0.08,
+        speed: 0.02 + this.random() * 0.02,
+        direction: this.random() < 0.5 ? -1 : 1,
+      },
+      {
+        id: randomUUID(),
+        type: "balloon",
+        yRatio: 0.35 + this.random() * 0.1,
+        speed: 0.015 + this.random() * 0.025,
+        direction: this.random() < 0.5 ? -1 : 1,
+      },
+      {
+        id: randomUUID(),
+        type: "bird",
+        yRatio: 0.52 + this.random() * 0.12,
+        speed: 0.04 + this.random() * 0.03,
+        direction: this.random() < 0.5 ? -1 : 1,
+      },
+    ];
+
     this.activeEvent = {
       id: randomUUID(),
       targetX: 0.2 + this.random() * 0.6,
       startedAt: new Date(startedAt).toISOString(),
       endsAt: new Date(startedAt + this.durationMs).toISOString(),
       durationMs: this.durationMs,
+      wind: {
+        direction: windDirection,
+        speed: windSpeed,
+        active: windActive,
+      },
+      obstacles,
     };
     this.joinedUsers.clear();
     this.occupiedLandingX = [];
@@ -109,8 +146,8 @@ export class GameEventManager implements DropEventEmitter {
   }
 
   private allocateLandingX(username: string, targetX: number): number {
-    const isSpecialUser = username.trim().toLowerCase() === GameEventManager.SPECIAL_USERNAME;
-    if (isSpecialUser && this.random() < GameEventManager.SPECIAL_TARGET_CHANCE) {
+    const targetChance = this.getUserTargetChance(username);
+    if (targetChance > 0 && this.random() < targetChance) {
       // İki rastgele değerin farkı hedefin merkezine doğru üçgensel bir dağılım üretir.
       const offset = (this.random() - this.random()) * GameEventManager.SPECIAL_TARGET_SPREAD;
       const landingX = this.clamp(targetX + offset, 0.04, 0.96);
@@ -164,6 +201,11 @@ export class GameEventManager implements DropEventEmitter {
 
   private clamp(value: number, minimum: number, maximum: number): number {
     return Math.min(maximum, Math.max(minimum, value));
+  }
+
+  private getUserTargetChance(username: string): number {
+    const normalized = username.trim().toLowerCase();
+    return GameEventManager.USER_TARGET_CHANCES[normalized] ?? 0;
   }
 
   private calculateScore(landingX: number, targetX: number): number {

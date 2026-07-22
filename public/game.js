@@ -227,6 +227,376 @@ class PinkLandingBowl {
   }
 }
 
+class WindManager {
+  constructor(scene) {
+    this.scene = scene;
+    this.windState = { direction: 1, speed: 0.04, active: true };
+    this.particles = [];
+    this.spawnTimer = 0;
+  }
+
+  setWind(windState) {
+    if (windState && typeof windState.direction === "number") {
+      this.windState = {
+        direction: windState.direction,
+        speed: windState.speed ?? 0.04,
+        active: windState.active ?? true,
+      };
+    }
+  }
+
+  update(time, delta) {
+    if (!this.windState.active) return;
+    this.spawnTimer += delta;
+    if (this.spawnTimer >= 180) {
+      this.spawnTimer = 0;
+      if (this.particles.length < 24) {
+        this.spawnWindStream();
+      }
+    }
+
+    const deltaSec = delta / 1_000;
+    const moveSpeed = this.windState.direction * (280 + this.windState.speed * 2000) * deltaSec;
+
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.x += moveSpeed;
+      p.alpha -= deltaSec * 0.25;
+      if (p.x < -100 || p.x > WORLD_WIDTH + 100 || p.alpha <= 0) {
+        p.destroy();
+        this.particles.splice(i, 1);
+      }
+    }
+  }
+
+  spawnWindStream() {
+    const dir = this.windState.direction;
+    const startX = dir > 0 ? -50 : WORLD_WIDTH + 50;
+    const startY = 120 + Math.random() * 700;
+    const length = 80 + Math.random() * 120;
+
+    const stream = this.scene.add.graphics().setDepth(2);
+    stream.lineStyle(2 + Math.random() * 2, 0xffffff, 0.35);
+    stream.lineBetween(0, 0, dir * length, Math.sin(Math.random() * Math.PI) * 12);
+    stream.setPosition(startX, startY);
+
+    this.particles.push(stream);
+  }
+
+  applyWindToPlayer(player, deltaSeconds) {
+    if (!this.windState.active || !player.isAirborne) return;
+    const windPush = this.windState.direction * (this.windState.speed * 1800) * deltaSeconds;
+    player.velocityX += windPush;
+  }
+}
+
+class FlyingBird {
+  constructor(scene, data) {
+    this.scene = scene;
+    this.id = data.id;
+    this.type = "bird";
+    this.y = data.yRatio * 1_080;
+    this.speed = (140 + data.speed * 1800) * data.direction;
+    this.direction = data.direction;
+    this.x = data.direction > 0 ? -60 : WORLD_WIDTH + 60;
+    this.radiusX = 36;
+    this.radiusY = 24;
+    this.container = scene.add.container(this.x, this.y).setDepth(6);
+    this.wingPhase = Math.random() * Math.PI * 2;
+    this.build();
+  }
+
+  build() {
+    this.graphics = this.scene.add.graphics();
+    this.container.add(this.graphics);
+    if (this.direction < 0) this.container.setScale(-1, 1);
+  }
+
+  update(time, delta) {
+    if (!this.container?.active) return;
+    const deltaSec = delta / 1_000;
+    this.container.x += this.speed * deltaSec;
+
+    if (this.direction > 0 && this.container.x > WORLD_WIDTH + 100) {
+      this.container.x = -100;
+    } else if (this.direction < 0 && this.container.x < -100) {
+      this.container.x = WORLD_WIDTH + 100;
+    }
+
+    this.wingPhase += deltaSec * 14;
+    const wingY = Math.sin(this.wingPhase) * 16;
+
+    this.graphics.clear();
+    this.graphics.fillStyle(0x332244, 0.9);
+    this.graphics.fillEllipse(0, 0, 24, 14);
+    this.graphics.fillStyle(0x442255, 0.95);
+    this.graphics.fillCircle(12, -3, 6);
+    this.graphics.fillStyle(0xffaa22, 1);
+    this.graphics.fillTriangle(17, -4, 23, -2, 17, 0);
+
+    this.graphics.lineStyle(4, 0x221133, 0.95);
+    this.graphics.lineBetween(-4, 0, -18, -14 + wingY);
+    this.graphics.lineBetween(-18, -14 + wingY, -30, -4 + wingY * 0.5);
+
+    this.graphics.lineStyle(4, 0x442255, 0.95);
+    this.graphics.lineBetween(4, 0, 16, -16 + wingY);
+    this.graphics.lineBetween(16, -16 + wingY, 26, -6 + wingY * 0.5);
+  }
+
+  onHit() {
+    this.scene.tweens.add({
+      targets: this.container,
+      scaleY: 1.4,
+      scaleX: this.direction < 0 ? -1.3 : 1.3,
+      duration: 120,
+      yoyo: true,
+      ease: "Quad.out",
+    });
+  }
+
+  destroy() {
+    this.container?.destroy();
+  }
+}
+
+class HotAirBalloon {
+  constructor(scene, data) {
+    this.scene = scene;
+    this.id = data.id;
+    this.type = "balloon";
+    this.y = data.yRatio * 1_080;
+    this.speed = (60 + data.speed * 1200) * data.direction;
+    this.direction = data.direction;
+    this.x = data.direction > 0 ? -100 : WORLD_WIDTH + 100;
+    this.radiusX = 52;
+    this.radiusY = 65;
+    this.container = scene.add.container(this.x, this.y).setDepth(5);
+    this.wobbleTimer = 0;
+    this.build();
+  }
+
+  build() {
+    const balloonG = this.scene.add.graphics();
+
+    balloonG.fillStyle(0x5c3a21, 1);
+    balloonG.fillRoundedRect(-18, 55, 36, 28, 6);
+    balloonG.lineStyle(2, 0x3d2514, 1);
+    balloonG.strokeRoundedRect(-18, 55, 36, 28, 6);
+
+    balloonG.lineStyle(2, 0xd4b896, 0.9);
+    balloonG.lineBetween(-14, 55, -28, 30);
+    balloonG.lineBetween(14, 55, 28, 30);
+
+    balloonG.fillStyle(0xff2a8d, 0.95);
+    balloonG.fillCircle(0, -15, 52);
+    balloonG.fillStyle(0xffa834, 0.95);
+    balloonG.fillTriangle(0, 36, -38, 5, 38, 5);
+
+    balloonG.fillStyle(0xffd52a, 0.9);
+    balloonG.fillEllipse(0, -15, 34, 100);
+    balloonG.fillStyle(0x2affd5, 0.9);
+    balloonG.fillEllipse(0, -15, 16, 96);
+
+    this.flame = this.scene.add.circle(0, 46, 7, 0xff7700, 0.9);
+    this.container.add([balloonG, this.flame]);
+
+    this.scene.tweens.add({
+      targets: this.flame,
+      scaleX: 1.5,
+      scaleY: 1.8,
+      alpha: 0.6,
+      duration: 250,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.inOut",
+    });
+  }
+
+  update(time, delta) {
+    if (!this.container?.active) return;
+    const deltaSec = delta / 1_000;
+    this.container.x += this.speed * deltaSec;
+
+    this.wobbleTimer += deltaSec * 2;
+    this.container.y = this.y + Math.sin(this.wobbleTimer) * 14;
+
+    if (this.direction > 0 && this.container.x > WORLD_WIDTH + 140) {
+      this.container.x = -140;
+    } else if (this.direction < 0 && this.container.x < -140) {
+      this.container.x = WORLD_WIDTH + 140;
+    }
+  }
+
+  onHit() {
+    this.scene.tweens.add({
+      targets: this.container,
+      angle: 15 * (Math.random() < 0.5 ? -1 : 1),
+      duration: 150,
+      yoyo: true,
+      ease: "Back.out",
+    });
+  }
+
+  destroy() {
+    this.container?.destroy();
+  }
+}
+
+class Zeppelin {
+  constructor(scene, data) {
+    this.scene = scene;
+    this.id = data.id;
+    this.type = "zeppelin";
+    this.y = data.yRatio * 1_080;
+    this.speed = (90 + data.speed * 1400) * data.direction;
+    this.direction = data.direction;
+    this.x = data.direction > 0 ? -180 : WORLD_WIDTH + 180;
+    this.radiusX = 90;
+    this.radiusY = 40;
+    this.container = scene.add.container(this.x, this.y).setDepth(4);
+    this.propellerAngle = 0;
+    this.build();
+  }
+
+  build() {
+    const zepG = this.scene.add.graphics();
+
+    zepG.fillStyle(0xd92d91, 0.95);
+    zepG.fillTriangle(-85, -5, -115, -35, -75, -15);
+    zepG.fillTriangle(-85, 5, -115, 35, -75, 15);
+
+    zepG.fillStyle(0xe2e8f0, 0.98);
+    zepG.fillEllipse(0, 0, 180, 72);
+    zepG.lineStyle(3, 0x94a3b8, 1);
+    zepG.strokeEllipse(0, 0, 180, 72);
+
+    zepG.fillStyle(0xff2fa4, 0.9);
+    zepG.fillRect(-70, -8, 140, 16);
+
+    zepG.fillStyle(0x1e293b, 0.95);
+    zepG.fillRoundedRect(-35, 30, 70, 22, 6);
+    zepG.fillStyle(0x38bdf8, 0.9);
+    zepG.fillRect(-25, 35, 12, 10);
+    zepG.fillRect(-5, 35, 12, 10);
+    zepG.fillRect(15, 35, 12, 10);
+
+    const text = this.scene.add.text(0, -1, "RELLARIA", {
+      fontFamily: "Arial Black, Arial",
+      fontSize: "15px",
+      color: "#ffffff",
+      stroke: "#d92d91",
+      strokeThickness: 3,
+    }).setOrigin(0.5);
+
+    this.propellerG = this.scene.add.graphics();
+    this.container.add([zepG, text, this.propellerG]);
+
+    if (this.direction < 0) this.container.setScale(-1, 1);
+  }
+
+  update(time, delta) {
+    if (!this.container?.active) return;
+    const deltaSec = delta / 1_000;
+    this.container.x += this.speed * deltaSec;
+
+    this.propellerAngle += deltaSec * 25;
+    this.propellerG.clear();
+    this.propellerG.lineStyle(3, 0x334155, 1);
+    const pX = -92;
+    const pLen = Math.sin(this.propellerAngle) * 16;
+    this.propellerG.lineBetween(pX, -pLen, pX, pLen);
+
+    if (this.direction > 0 && this.container.x > WORLD_WIDTH + 220) {
+      this.container.x = -220;
+    } else if (this.direction < 0 && this.container.x < -220) {
+      this.container.x = WORLD_WIDTH + 220;
+    }
+  }
+
+  onHit() {
+    this.scene.tweens.add({
+      targets: this.container,
+      y: this.y - 18,
+      duration: 160,
+      yoyo: true,
+      ease: "Quad.out",
+    });
+  }
+
+  destroy() {
+    this.container?.destroy();
+  }
+}
+
+class ObstacleManager {
+  constructor(scene) {
+    this.scene = scene;
+    this.obstacles = [];
+  }
+
+  initObstacles(obstaclesData) {
+    this.clear();
+    if (!Array.isArray(obstaclesData)) return;
+    for (const data of obstaclesData) {
+      if (data.type === "bird") {
+        this.obstacles.push(new FlyingBird(this.scene, data));
+      } else if (data.type === "balloon") {
+        this.obstacles.push(new HotAirBalloon(this.scene, data));
+      } else if (data.type === "zeppelin") {
+        this.obstacles.push(new Zeppelin(this.scene, data));
+      }
+    }
+  }
+
+  update(time, delta) {
+    for (const obs of this.obstacles) {
+      obs.update(time, delta);
+    }
+  }
+
+  checkCollisions(players, time) {
+    for (const player of players) {
+      if (!player.isAirborne || !player.container?.active) continue;
+      const px = player.container.x;
+      const py = player.container.y;
+
+      for (const obs of this.obstacles) {
+        if (!obs.container?.active) continue;
+        const ox = obs.container.x;
+        const oy = obs.container.y;
+
+        const deltaX = Math.abs(px - ox);
+        const deltaY = Math.abs(py - oy);
+
+        const radiusX = obs.radiusX + 38 * player.displayScale;
+        const radiusY = obs.radiusY + 46 * player.displayScale;
+
+        if (deltaX < radiusX && deltaY < radiusY) {
+          if (time - player.lastCollisionAt < 180) continue;
+          player.lastCollisionAt = time;
+
+          const bounceDir = px < ox ? -1 : 1;
+          const bounceSpeed = Phaser.Math.Clamp(300 + Math.abs(player.velocityX), 320, 700);
+
+          player.velocityX = bounceDir * bounceSpeed;
+          player.isBouncing = true;
+          player.tiltAngle = bounceDir * 34;
+
+          player.createCollisionSpark((px + ox) / 2, (py + oy) / 2);
+          obs.onHit();
+        }
+      }
+    }
+  }
+
+  clear() {
+    for (const obs of this.obstacles) {
+      obs.destroy();
+    }
+    this.obstacles = [];
+  }
+}
+
 class ParachutePlayer {
   constructor(scene, player, bowl, displayScale) {
     this.scene = scene;
@@ -387,6 +757,10 @@ class ParachutePlayer {
     const deltaSeconds = Math.min(delta, 50) / 1_000;
     this.fallElapsed += delta;
     const progress = Phaser.Math.Clamp(this.fallElapsed / this.fallDuration, 0, 1);
+
+    if (this.scene.windManager) {
+      this.scene.windManager.applyWindToPlayer(this, deltaSeconds);
+    }
 
     if (this.isBouncing) {
       this.velocityX *= Math.pow(0.988, deltaSeconds * 60);
@@ -617,6 +991,8 @@ class ParachuteScene extends Phaser.Scene {
     this.activeEvent = null;
     this.bowl = null;
     this.players = new Set();
+    this.windManager = null;
+    this.obstacleManager = null;
   }
 
   preload() {
@@ -624,6 +1000,9 @@ class ParachuteScene extends Phaser.Scene {
   }
 
   create() {
+    this.windManager = new WindManager(this);
+    this.obstacleManager = new ObstacleManager(this);
+
     this.socketBridge.connect({
       onConnected: () => undefined,
       onDisconnected: () => undefined,
@@ -637,6 +1016,9 @@ class ParachuteScene extends Phaser.Scene {
 
   update(time, delta) {
     this.bowl?.update(time, delta);
+    this.windManager?.update(time, delta);
+    this.obstacleManager?.update(time, delta);
+
     const players = [...this.players];
     for (const player of players) player.updateFall(delta);
     for (let leftIndex = 0; leftIndex < players.length; leftIndex += 1) {
@@ -644,6 +1026,7 @@ class ParachuteScene extends Phaser.Scene {
         players[leftIndex].collideWith(players[rightIndex], time);
       }
     }
+    this.obstacleManager?.checkCollisions(players, time);
   }
 
   startEvent(event) {
@@ -651,6 +1034,8 @@ class ParachuteScene extends Phaser.Scene {
     this.activeEvent = event;
     this.bowl?.destroy();
     this.bowl = new PinkLandingBowl(this, event.targetX * 1_920);
+    if (event.wind) this.windManager?.setWind(event.wind);
+    if (event.obstacles) this.obstacleManager?.initObstacles(event.obstacles);
   }
 
   endEvent(eventId) {
@@ -658,6 +1043,7 @@ class ParachuteScene extends Phaser.Scene {
     this.activeEvent = null;
     this.bowl?.destroy();
     this.bowl = null;
+    this.obstacleManager?.clear();
     for (const player of this.players) player.destroy();
     this.players.clear();
   }
@@ -668,8 +1054,11 @@ class ParachuteScene extends Phaser.Scene {
       this.startEvent({
         id: player.eventId,
         targetX: player.targetX,
+        wind: player.wind,
         endsAt: new Date(Date.now() + 60_000).toISOString(),
       });
+    } else if (player.wind) {
+      this.windManager?.setWind(player.wind);
     }
     const playerCount = this.players.size + 1;
     const displayScale = this.getPlayerScale(playerCount);
