@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { DropEvent } from "../domain/ChatMessage.js";
-import type { GameEventState, ObstacleData, PlayerDropEvent } from "../domain/GameEvent.js";
+import type { GameEventState, PlayerDropEvent } from "../domain/GameEvent.js";
 import type { DropEventEmitter } from "../commands/DropCommandHandler.js";
 
 export interface GameEventOutput {
@@ -62,7 +62,6 @@ export class GameEventManager implements DropEventEmitter {
       landingX,
       launchVelocityX,
       score,
-      wind: this.activeEvent.wind,
     });
     return true;
   }
@@ -79,46 +78,12 @@ export class GameEventManager implements DropEventEmitter {
   private startEvent(): void {
     if (this.endTimer) clearTimeout(this.endTimer);
     const startedAt = this.now();
-    const windDirection = this.random() < 0.5 ? -1 : 1;
-    const windActive = this.random() < 0.85;
-    const windSpeed = 0.03 + this.random() * 0.04;
-
-    const obstacles: ObstacleData[] = [
-      {
-        id: randomUUID(),
-        type: "zeppelin",
-        yRatio: 0.18 + this.random() * 0.08,
-        speed: 0.02 + this.random() * 0.02,
-        direction: this.random() < 0.5 ? -1 : 1,
-      },
-      {
-        id: randomUUID(),
-        type: "balloon",
-        yRatio: 0.35 + this.random() * 0.1,
-        speed: 0.015 + this.random() * 0.025,
-        direction: this.random() < 0.5 ? -1 : 1,
-      },
-      {
-        id: randomUUID(),
-        type: "bird",
-        yRatio: 0.52 + this.random() * 0.12,
-        speed: 0.04 + this.random() * 0.03,
-        direction: this.random() < 0.5 ? -1 : 1,
-      },
-    ];
-
     this.activeEvent = {
       id: randomUUID(),
       targetX: 0.2 + this.random() * 0.6,
       startedAt: new Date(startedAt).toISOString(),
       endsAt: new Date(startedAt + this.durationMs).toISOString(),
       durationMs: this.durationMs,
-      wind: {
-        direction: windDirection,
-        speed: windSpeed,
-        active: windActive,
-      },
-      obstacles,
     };
     this.joinedUsers.clear();
     this.occupiedLandingX = [];

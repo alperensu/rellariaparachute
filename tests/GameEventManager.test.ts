@@ -47,14 +47,7 @@ describe("GameEventManager", () => {
       emitPlayerDrop: (event) => emittedPlayers.push(event),
       emitEventEnded: vi.fn(),
     };
-    // 13 numbers for startEvent (targetX + 12 for wind & obstacles), then spawnX, targetChance roll, offset r1, offset r2
-    const randomValues = [
-      0.5, // targetX = 0.5
-      0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, // wind & obstacles
-      0.5, // spawnX
-      0.1, // targetChance check (0.1 < 0.40 -> gets special target landing)
-      0.8, 0.2, // offset (0.8 - 0.2) * 0.055
-    ];
+    const randomValues = [0.5, 0.2, 0.1, 0.8, 0.2, 0.3, 0.4];
     const manager = new GameEventManager(output, {
       random: () => randomValues.shift() ?? 0.5,
     });
@@ -74,13 +67,7 @@ describe("GameEventManager", () => {
       emitPlayerDrop: (event) => emittedPlayers.push(event),
       emitEventEnded: vi.fn(),
     };
-    // 13 numbers for startEvent, then spawnX, then targetChance roll (0.2 >= 0.05 for alperensu)
-    const randomValues = [
-      0.5, // targetX = 0.5
-      0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, // wind & obstacles
-      0.5, // spawnX
-      0.2, // targetChance check (0.2 >= 0.05 -> alperensu gets standard slot)
-    ];
+    const randomValues = [0.5, 0.2, 0.95];
     const manager = new GameEventManager(output, {
       random: () => randomValues.shift() ?? 0.5,
     });
